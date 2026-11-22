@@ -67,8 +67,17 @@ def resposta(pid):
     p = le.P.get(pid)
     if not p or p["tipo"] != "pergunta":
         sys.exit(f"{pid} não é uma pergunta do livro.")
-    print(f"[{pid}] P: {p['pergunta']}\n")
-    print(p["resposta"])
+    # Formato da skill copia-pergunta: tudo entre aspas, recuo de parágrafo (espaço eme),
+    # "[x] — pergunta" em fonte normal e "— resposta" em itálico; citação embaixo.
+    recuo = " "
+    resp = p["resposta"].strip().strip("“”\"").strip()
+    pars = [re.sub(r"\s+", " ", x).strip() for x in re.split(r"\n\s*\n|\n", resp) if x.strip()]
+    linhas = [f"“{recuo}[{pid}] — {p['pergunta'].strip()}"]
+    for k, par in enumerate(pars):
+        linhas.append(f"{recuo}{'— ' if k == 0 else ''}*{par}*")
+    linhas[-1] += "”"
+    print("  \n".join(linhas))
+    print(f"\nLivro dos Espíritos, pergunta {pid}.")
 
 
 if __name__ == "__main__":

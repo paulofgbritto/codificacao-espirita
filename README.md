@@ -90,3 +90,29 @@ Mais econômico: achar números com `--ids` → montar o arquivo com `consultar_
 - Só cobre *O Livro dos Espíritos*; os outros 4 livros ainda não.
 - Perguntas 14 e 246: aspas perdidas no PDF; divisão resposta/comentário estimada.
 - Temas são por capítulo.
+
+## Busca semântica (sem IA na nuvem, sem tokens)
+
+`busca.py` encontra as perguntas, comentários de Kardec (`K163`) e notas (`N4`) mais prováveis para uma situação, combinando busca por significado (BAAI/bge-m3), BM25 e um reranker (BAAI/bge-reranker-v2-m3) que dá a nota final de 0 a 100%. Tudo roda no seu computador.
+
+Instalação (uma vez; os modelos baixam sozinhos, cerca de 4,5 GB no total):
+
+```
+pip install -r requirements.txt
+cd dados && tar -xf livro_dos_espiritos.zip && cd ..     (ou descompacte o zip pelo Windows)
+python busca.py indexar
+```
+
+Uso rápido: `python pergunte.py` (digite a situação e veja pergunta e resposta de cada item).
+
+Comandos de `busca.py`:
+
+| Comando | O que faz |
+|---|---|
+| `buscar "situação"` | itens mais prováveis (`-n 20`, `--min 40`, `--ordem livro`, `--candidatos 60`) |
+| `buscar "..." --duvida "..." --duvida "..."` | busca cada dúvida separada; o item fica com a maior nota |
+| `ranking "situação"` | todos os itens do livro, do mais ao menos provável |
+| `nota "situação" --ids "163, K165, N4"` | nota de itens específicos |
+| `interativo` | várias consultas seguidas, sem recarregar os modelos |
+
+Opções comuns: `--formato ids` (padrão, `163 | K163`), `ids-nota`, `linhas`, `completo`, `json`; `--tipos pergunta,comentario,nota,kardec,texto_kardec`; `--sem-reranker` (mais rápido, nota só relativa); `--reranker <modelo>`. Para trocar o modelo de vetores: `python busca.py indexar --modelo <modelo>`.

@@ -10,9 +10,10 @@ from busca import Buscador, carregar_itens  # noqa: F401
 
 QUANTOS = 15      # quantos itens mostrar
 NOTA_MINIMA = 0   # ex.: 40 para mostrar só os de 40% ou mais
+USAR_RERANKER = False  # True = nota absoluta, mas leva minutos por consulta sem placa de vídeo
 
 print("Carregando os modelos (só demora na primeira consulta)...")
-bus = Buscador()
+bus = Buscador(usar_reranker=USAR_RERANKER)
 print("Pronto. Digite a situação e aperte Enter (Enter vazio para sair).")
 
 while True:
@@ -23,7 +24,7 @@ while True:
     if not situacao:
         break
     t0 = time.time()
-    lista = bus.buscar(situacao, n=QUANTOS, minimo=NOTA_MINIMA)
+    lista = bus.buscar(situacao, n=QUANTOS, minimo=NOTA_MINIMA, rerank=USAR_RERANKER)
     print()
     print(bus.formatar(lista, "completo"))
     print(f"\n({len(lista)} itens em {time.time() - t0:.1f} s)")

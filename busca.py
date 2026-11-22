@@ -129,14 +129,70 @@ def _prefixos(modelo):
     return "", ""
 
 
+class EmbedderONNX:
+    """bge-m3 rodando por ONNX Runtime (sem HuggingFace, sem PyTorch).
+
+    Os arquivos vêm do release 'onnx.zip' de github.com/yuniko-software/bge-m3-onnx:
+    bge_m3_tokenizer.onnx, bge_m3_model.onnx e bge_m3_model.onnx_data na mesma pasta.
+    Só o vetor denso (1024 números, já normalizado) é usado.
+    """
+
+    def __init__(self, pasta):
+        import onnxruntime as ort
+        from onnxruntime_extensions import get_library_path
+        pasta = Path(pasta)
+        opt_tok = ort.SessionOptions()
+        opt_tok.register_custom_ops_library(get_library_path())
+        self.tok = ort.InferenceSession(str(pasta / "bge_m3_tokenizer.onnx"), sess_options=opt_tok,
+                                        providers=["CPUExecutionProvider"])
+        opt = ort.SessionOptions()
+        opt.log_severity_level = 3
+        provedores = [p for p in ("CUDAExecutionProvider", "CPUExecutionProvider")
+                      if p in ort.get_available_providers()]
+        self.mod = ort.InferenceSession(str(pasta / "bge_m3_model.onnx"), sess_options=opt,
+                                        providers=provedores)
+
+    def _um(self, texto):
+        ids, _, pos = self.tok.run(None, {"inputs": np.array([texto])})
+        ordem = np.argsort(pos)
+        ids = np.array([ids[ordem]], dtype=np.int64)
+        saida = self.mod.run(None, {"input_ids": ids, "attention_mask": np.ones_like(ids)})
+        v = saida[0][0].astype(np.float32)
+        return v / (np.linalg.norm(v) + 1e-12)
+
+    def encode(self, textos, batch_size=8, normalize_embeddings=True, show_progress_bar=False,
+               convert_to_numpy=True):
+        saida = []
+        for i, t in enumerate(textos):
+            saida.append(self._um(t))
+            if show_progress_bar and (i + 1) % 100 == 0:
+                print(f"  {i + 1}/{len(textos)}", flush=True)
+        return np.array(saida, dtype=np.float32)
+
+
+def _pasta_onnx(modelo):
+    """'onnx' ou 'onnx:/caminho' -> pasta com os arquivos .onnx (ou variável BGE_M3_ONNX)."""
+    import os
+    caminho = modelo.split(":", 1)[1] if ":" in modelo else ""
+    return Path(caminho or os.environ.get("BGE_M3_ONNX") or AQUI / "modelo_onnx")
+
+
 def carregar_embedder(modelo):
+    if modelo.lower().startswith("onnx"):
+        return EmbedderONNX(_pasta_onnx(modelo))
     from sentence_transformers import SentenceTransformer
     return SentenceTransformer(modelo)
 
 
 def carregar_reranker(modelo):
-    from sentence_transformers import CrossEncoder
-    return CrossEncoder(modelo, max_length=1024)
+    """O reranker é opcional: sem ele (ex.: HuggingFace bloqueado) as notas ficam relativas."""
+    try:
+        from sentence_transformers import CrossEncoder
+        return CrossEncoder(modelo, max_length=1024)
+    except Exception as erro:  # noqa: BLE001
+        print(f"[aviso] reranker indisponível ({type(erro).__name__}); usando nota relativa.",
+              file=sys.stderr)
+        return None
 
 
 # ───────────────────────────── índice ─────────────────────────────

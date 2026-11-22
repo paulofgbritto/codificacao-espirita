@@ -116,3 +116,18 @@ Comandos de `busca.py`:
 | `interativo` | várias consultas seguidas, sem recarregar os modelos |
 
 Opções comuns: `--formato ids` (padrão, `163 | K163`), `ids-nota`, `linhas`, `completo`, `json`; `--tipos pergunta,comentario,nota,kardec,texto_kardec`; `--sem-reranker` (mais rápido, nota só relativa); `--reranker <modelo>`. Para trocar o modelo de vetores: `python busca.py indexar --modelo <modelo>`.
+
+
+### Modelo via ONNX (sem HuggingFace)
+
+Se o HuggingFace estiver bloqueado (ex.: algumas nuvens), o bge-m3 pode vir do GitHub:
+
+```
+pip install onnxruntime onnxruntime-extensions numpy rank_bm25
+# baixe o onnx.zip de https://github.com/yuniko-software/bge-m3-onnx/releases (1,3 GB)
+# e extraia os 3 arquivos .onnx em  modelo_onnx/   (ou defina BGE_M3_ONNX=/pasta)
+python busca.py indexar --modelo onnx
+```
+
+Sem o reranker (que só existe no HuggingFace) as notas são relativas (o melhor = 100%), não absolutas.
+Medido numa nuvem com 2 CPUs: índice em ~17 min, abrir em 2,5 s, consulta com 4 dúvidas em ~0,8 s.

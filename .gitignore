@@ -2,3 +2,5 @@ dados/livro_dos_espiritos.json
 blocos/
 indice/
 __pycache__/
+modelo_onnx/
+indexar.log

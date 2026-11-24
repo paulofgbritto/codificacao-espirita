@@ -6,12 +6,14 @@ lido de uma vez só.
 
     python3 candidatos.py lote "o que é espírito?" 1 saida.txt     # posições 1-40
     python3 candidatos.py lote "o que é espírito?" 2 saida.txt     # posições 41-80
-    python3 candidatos.py conferir saida.txt "1:N,2:N,...,40:S"    # todos os números vieram?
+    python3 candidatos.py conferir saida.txt "COD,1:N,2:N,...:S"   # código + todos os números?
+    python3 candidatos.py rapido "pergunta" 30                     # 1 busca: 30 perguntas com id
     python3 candidatos.py resposta 23                              # resposta do Espírito, inteira
 
 Usa o índice em indice/ (já vem no repositório) e o modelo em modelo_onnx/.
 """
 import json
+import random
 import re
 import sys
 from pathlib import Path
@@ -19,7 +21,8 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 
-TAMANHO_LOTE = 40
+# Lote 1 é pequeno (a equivalente quase sempre está entre as primeiras); depois crescem.
+TAMANHOS = [10, 30, 40, 40, 40, 40]
 MAX_RESPOSTA = 700   # caracteres da resposta mostrados ao avaliador
 
 
@@ -34,8 +37,11 @@ def _ordem(pergunta):
 
 def lote(pergunta, numero, saida):
     b, ids = _ordem(pergunta)
-    ini = (int(numero) - 1) * TAMANHO_LOTE
-    parte = ids[ini:ini + TAMANHO_LOTE]
+    n = int(numero)
+    if not 1 <= n <= len(TAMANHOS):
+        sys.exit(f"lote deve ser de 1 a {len(TAMANHOS)}")
+    ini = sum(TAMANHOS[:n - 1])
+    parte = ids[ini:ini + TAMANHOS[n - 1]]
     linhas, mapa = [], {}
     for k, i in enumerate(parte, 1):
         it = b.itens[b.pos[i]]
@@ -45,13 +51,21 @@ def lote(pergunta, numero, saida):
         p = re.sub(r"\s+", " ", it["pergunta"]).strip()
         linhas.append(f"#{k}\nP: {p}\nR: {r}\n")
         mapa[k] = i
+    # Código que só aparece no FIM do arquivo: prova que o avaliador leu tudo.
+    codigo = "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=5))
+    linhas.append(f"CODIGO-DE-LEITURA: {codigo}\n")
     Path(saida).write_text("\n".join(linhas), encoding="utf-8")
-    Path(str(saida) + ".mapa.json").write_text(json.dumps(mapa), encoding="utf-8")
+    Path(str(saida) + ".mapa.json").write_text(
+        json.dumps({"mapa": mapa, "codigo": codigo}), encoding="utf-8")
     print(f"lote {numero}: posições {ini + 1}-{ini + len(parte)} de {len(ids)} perguntas -> {saida}")
 
 
 def conferir(saida, veredito):
-    mapa = {int(k): v for k, v in json.loads(Path(str(saida) + ".mapa.json").read_text()).items()}
+    dados = json.loads(Path(str(saida) + ".mapa.json").read_text())
+    mapa = {int(k): v for k, v in dados["mapa"].items()}
+    if dados["codigo"] not in veredito.upper():
+        print("INVALIDO: faltou o CODIGO-DE-LEITURA (o avaliador não leu o arquivo até o fim).")
+        sys.exit(1)
     vistos = {int(n): s.upper() for n, s in re.findall(r"(\d+)\s*:\s*([SN])", veredito, re.I)}
     faltam = sorted(set(mapa) - set(vistos))
     if faltam:
@@ -80,7 +94,19 @@ def resposta(pid):
     print(f"\nLivro dos Espíritos, pergunta {pid}.")
 
 
+def rapido(pergunta, n="30"):
+    """Uma busca só: lista as n primeiras perguntas (id + pergunta) e a resposta das 3 primeiras."""
+    b, ids = _ordem(pergunta)
+    for k, i in enumerate(ids[:int(n)], 1):
+        it = b.itens[b.pos[i]]
+        p = re.sub(r"\s+", " ", it["pergunta"]).strip()
+        print(f"{k:>2} [{i}] {p[:170]}")
+        if k <= 3:
+            r = re.sub(r"\s+", " ", it["resposta"]).strip()
+            print(f"      R: {r[:260]}")
+
+
 if __name__ == "__main__":
     cmd, *args = sys.argv[1:] or ["ajuda"]
-    {"lote": lote, "conferir": conferir, "resposta": resposta}.get(
+    {"lote": lote, "conferir": conferir, "resposta": resposta, "rapido": rapido}.get(
         cmd, lambda *a: print(__doc__))(*args)

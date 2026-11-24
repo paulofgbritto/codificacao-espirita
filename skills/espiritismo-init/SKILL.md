@@ -27,6 +27,8 @@ if [ ! -f modelo_onnx/bge_m3_model.onnx_data ]; then
 fi
 cd /home/claude
 ls codificacao-espirita/modelo_onnx  # deve listar bge_m3_model.onnx, bge_m3_model.onnx_data e bge_m3_tokenizer.onnx
+# aquecer o modelo (traz os 1,3 GB para o cache do disco; as buscas seguintes levam ~3 s)
+cd codificacao-espirita && python3 candidatos.py rapido "aquecimento" 1 >/dev/null 2>&1; cd /home/claude
 ```
 Timeout de 600000 ms (o modelo tem 1,3 GB). O índice já vem pronto no repositório; nunca baixe nada pelo conector do Google Drive.
 

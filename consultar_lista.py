@@ -14,7 +14,7 @@ Uso:
   python consultar_lista.py "180|181" --manter-ordem      (mantém a ordem recebida)
 
 Saída: imprime o caminho do(s) arquivo(s) gerado(s), um por linha (padrão: pasta temporária).
-Listas grandes são divididas em partes de até --max-caracteres (padrão 60000), sem cortar itens.
+Listas grandes são divididas em partes de até --max-caracteres (padrão 45000), sem cortar itens.
 Aceita também a matriz da parte 1: "[['180', 95, 75], ['K181', 40, 30]]" (usa os ids e mostra a
 relevância de cada item no cabeçalho dele). Separadores aceitos: | , ;   Faixas: 180-182.  Ids: 182.b (pergunta), K919.a (comentário
 de Kardec), N4 (nota de rodapé). Identificadores inválidos são listados no fim do arquivo.
@@ -140,9 +140,9 @@ def main():
     ap.add_argument("-o", "--saida", help="arquivo de saída (padrão: arquivo temporário)")
     ap.add_argument("--completo", action="store_true", help="inclui comentário de Kardec e notas de cada pergunta")
     ap.add_argument("--manter-ordem", action="store_true", help="não reordena pela ordem do livro")
-    ap.add_argument("--max-caracteres", type=int, default=60000,
+    ap.add_argument("--max-caracteres", type=int, default=45000,
                     help="tamanho máximo de cada arquivo; acima disso divide em partes (0 = nunca dividir). "
-                         "Padrão 60000 (~18 mil tokens), abaixo do limite de leitura de uma IA")
+                         "Padrão 45000: com 60000 a leitura de uma IA chegou a ser truncada")
     ap.add_argument("--banco", default=ARQUIVO_PADRAO, help="caminho do JSON do banco")
     a = ap.parse_args()
     lista = a.lista if a.lista is not None else sys.stdin.read()

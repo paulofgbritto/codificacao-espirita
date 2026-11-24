@@ -77,7 +77,15 @@ def conferir(saida, veredito):
     print("COMPLETO. Equivalentes: " + (", ".join(sim) if sim else "NENHUMA"))
 
 
-def resposta(pid):
+def resposta(*pids):
+    """Imprime, no formato final, uma ou mais perguntas (cada uma com a citação embaixo)."""
+    for k, pid in enumerate(pids):
+        if k:
+            print()
+        _uma(pid)
+
+
+def _uma(pid):
     from codificacao_db import LivroDosEspiritos
     le = LivroDosEspiritos()
     p = le.P.get(pid)

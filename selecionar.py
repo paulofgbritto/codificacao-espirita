@@ -1,6 +1,6 @@
 """Escolhe, de uma matriz [['id', tokens, nota], ...], os itens de maior nota até um limite de tokens.
 
-    python3 selecionar.py "<matriz>" 15000
+    python3 selecionar.py "<matriz>" 20000             # limite omitido = 20000
     python3 selecionar.py "<matriz>" 15000 --pular     # pula o que não cabe e continua
 
 Ordem de escolha: maior nota primeiro; em empate, o de menos tokens. Por padrão, a seleção
@@ -31,7 +31,7 @@ def selecionar(matriz, limite, pular=False):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("matriz", help="matriz Python [['id', tokens, nota], ...]")
-    ap.add_argument("limite", type=int, help="número máximo de tokens")
+    ap.add_argument("limite", type=int, nargs="?", default=20000, help="número máximo de tokens (padrão 20000)")
     ap.add_argument("--pular", action="store_true", help="pula o item que não cabe e continua")
     a = ap.parse_args()
     try:

@@ -25,6 +25,22 @@ BLOCOS = [
 ]
 
 
+def _marcar_tokens(caminho):
+    """Põe '(tokens: N)' logo após o [id] de cada item, para o agente copiar na resposta."""
+    import re
+    sys.path.insert(0, AQUI)
+    from busca import carregar_itens
+    from codificacao_db import LivroDosEspiritos
+    from situacao import _texto, tokens_aprox
+    tok = {it["id"]: tokens_aprox(_texto(it)) for it in carregar_itens(LivroDosEspiritos())}
+    linhas = open(caminho, encoding="utf-8").read().split("\n")
+    for k, l in enumerate(linhas):
+        m = re.match(r"\[([^\]]+)\] ", l)
+        if m and m.group(1) in tok and "(tokens:" not in l[:40]:
+            linhas[k] = f"[{m.group(1)}] (tokens: {tok[m.group(1)]}) " + l[m.end():]
+    open(caminho, "w", encoding="utf-8").write("\n".join(linhas))
+
+
 def main():
     saida = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(AQUI, "blocos"))
     os.makedirs(saida, exist_ok=True)
@@ -39,6 +55,7 @@ def main():
                 for cap in caps_bloco:
                     with open(os.path.join(caps, f"{cap}.txt"), encoding="utf-8") as f:
                         out.write(f.read())
+            _marcar_tokens(destino)
             print(destino, os.path.getsize(destino))
 
 

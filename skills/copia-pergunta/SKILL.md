@@ -22,15 +22,16 @@ mv bge_m3_* /home/claude/codificacao-espirita/modelo_onnx/ && rm -f onnx.zip
 ```
 Timeout de 600000 ms (o modelo tem 1,3 GB). O índice já vem no repositório; nunca baixe nada pelo conector do Google Drive. Não abra os Haiku.
 
-## Passo 1 — Buscar (uma chamada)
+## Passo 1 — Buscar (uma chamada, duas buscas)
+Escreva a pergunta do usuário também em versão geral, trocando o caso específico pelo assunto de fundo ("chocolate faz mal?" → "alimentos fazem mal ao corpo"). Rode as duas na mesma chamada:
 ```bash
-cd /home/claude/codificacao-espirita && python3 candidatos.py rapido "PERGUNTA DO USUÁRIO" 30 2>/dev/null
+cd /home/claude/codificacao-espirita && python3 candidatos.py rapido "PERGUNTA DO USUÁRIO" 30 2>/dev/null; echo ======; python3 candidatos.py rapido "VERSÃO GERAL" 15 2>/dev/null
 ```
-A saída lista 30 perguntas com o id entre colchetes (ex.: `890`, `888.a`) e um trecho da resposta das 3 primeiras.
+A saída lista as perguntas com o id entre colchetes (ex.: `890`, `888.a`) e um trecho da resposta das 3 primeiras de cada busca. A segunda busca existe porque o livro quase sempre trata o assunto geral, não o caso específico.
 
 ## Passo 2 — Escolher
 Escolha a pergunta de Kardec que seja **pragmaticamente igual** à do usuário: mesmo objetivo, e a resposta dos Espíritos responde ao que ele quis dizer. Palavras diferentes não importam; sentido diferente importa.
-- A ordem é imperfeita: termos comuns ("lei de Deus") puxam perguntas genéricas, e a certa pode estar na posição 10–30. Leia a lista toda.
+- A ordem é imperfeita: termos comuns ("lei de Deus") puxam perguntas genéricas, e a certa pode estar na posição 10–30. Leia as duas listas inteiras.
 - "espírito" (minúscula, princípio inteligente) é diferente de "Espírito(s)" (seres); não são equivalentes entre si.
 - Em dúvida entre duas, leia as respostas com `python3 candidatos.py resposta ID` e fique com a que responde mais diretamente.
 - Se a lista não tiver a equivalente, tente `rapido "PERGUNTA" 60`. Se ainda assim não houver, diga numa frase que o livro não tem uma pergunta equivalente e ofereça a skill `perguntas-livro-espiritos`.

@@ -15,7 +15,8 @@ Uso:
 
 Saída: imprime o caminho do(s) arquivo(s) gerado(s), um por linha (padrão: pasta temporária).
 Listas grandes são divididas em partes de até --max-caracteres (padrão 60000), sem cortar itens.
-Separadores aceitos: | , ;   Faixas: 180-182.  Ids: 182.b (pergunta), K919.a (comentário
+Aceita também a matriz da parte 1: "[['180', 95, 75], ['K181', 40, 30]]" (usa os ids e mostra a
+relevância de cada item no cabeçalho dele). Separadores aceitos: | , ;   Faixas: 180-182.  Ids: 182.b (pergunta), K919.a (comentário
 de Kardec), N4 (nota de rodapé). Identificadores inválidos são listados no fim do arquivo.
 """
 import argparse
@@ -29,8 +30,26 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from codificacao_db import LivroDosEspiritos, ErroConsulta, ARQUIVO_PADRAO  # noqa: E402
 
 
+def ler_matriz(lista):
+    """Matriz da skill perguntas-livro-espiritos: [['180', 95, 75], ...] -> {'180': 75, ...}.
+    Devolve None se a entrada não for uma matriz."""
+    t = lista.strip()
+    if not t.startswith("["):
+        return None
+    import ast
+    try:
+        m = ast.literal_eval(t)
+    except (ValueError, SyntaxError):
+        return None
+    return {str(x[0]).strip(): (x[2] if len(x) > 2 else None) for x in m
+            if isinstance(x, (list, tuple)) and x}
+
+
 def separar(lista):
-    """split + strip: '180 | 181 , K181' -> ['180', '181', 'K181']"""
+    """split + strip: '180 | 181 , K181' -> ['180', '181', 'K181']; aceita também a matriz."""
+    m = ler_matriz(lista)
+    if m is not None:
+        return list(m)
     return [x.strip() for x in re.split(r"[|,;\n]+", lista) if x.strip() and x.strip().upper() != "NENHUMA"]
 
 
@@ -71,6 +90,7 @@ def bloco_anotacao(le, ref):
 
 
 def montar(le, lista, completo=False, manter_ordem=False):
+    notas = ler_matriz(lista) or {}
     itens, invalidos = [], []
     for x in separar(lista):
         try:
@@ -84,7 +104,11 @@ def montar(le, lista, completo=False, manter_ordem=False):
     blocos = []
     for i in itens:
         try:
-            blocos.append(bloco_anotacao(le, i) if i[:1] in "KN" else bloco_pergunta(le, i, completo, set(itens)))
+            b = bloco_anotacao(le, i) if i[:1] in "KN" else bloco_pergunta(le, i, completo, set(itens))
+            if notas.get(i) is not None:            # relevância dada pela parte 1
+                cab_item, _, resto = b.partition("\n")
+                b = f"{cab_item}  relevância {notas[i]:g}%\n{resto}"
+            blocos.append(b)
         except (ErroConsulta, KeyError, ValueError):
             invalidos.append(i)
     cab = (f"O Livro dos Espíritos — consulta de {len(blocos)} itens "
@@ -111,7 +135,8 @@ def dividir(cab, blocos, max_chars):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("lista", nargs="?", help="ids separados por | , ou ; (sem isso, lê da entrada padrão)")
+    ap.add_argument("lista", nargs="?", help="ids separados por | , ou ; ou a matriz [['id', tokens, nota], ...] "
+                                                "(sem isso, lê da entrada padrão)")
     ap.add_argument("-o", "--saida", help="arquivo de saída (padrão: arquivo temporário)")
     ap.add_argument("--completo", action="store_true", help="inclui comentário de Kardec e notas de cada pergunta")
     ap.add_argument("--manter-ordem", action="store_true", help="não reordena pela ordem do livro")

@@ -1,14 +1,16 @@
-"""Lotes de candidatos para a skill copia-pergunta.
+"""Busca de perguntas de O Livro dos Espíritos para a skill copia-pergunta.
 
-Ordena as perguntas de O Livro dos Espíritos pela semelhança com a pergunta do usuário
-e grava um lote numerado (pergunta + começo da resposta), pequeno o bastante para ser
-lido de uma vez só.
+Modo padrão (rápido): uma busca só, lista as 30 perguntas mais parecidas com a do usuário
+(com o id entre colchetes) e mostra um trecho da resposta das 3 primeiras.
 
-    python3 candidatos.py lote "o que é espírito?" 1 saida.txt     # posições 1-40
-    python3 candidatos.py lote "o que é espírito?" 2 saida.txt     # posições 41-80
-    python3 candidatos.py conferir saida.txt "COD,1:N,2:N,...:S"   # código + todos os números?
-    python3 candidatos.py rapido "pergunta" 30                     # 1 busca: 30 perguntas com id
-    python3 candidatos.py resposta 23                              # resposta do Espírito, inteira
+    python3 candidatos.py "o que é espírito?"            # = rapido, 30 perguntas
+    python3 candidatos.py rapido "o que é espírito?" 60  # mais perguntas
+    python3 candidatos.py resposta 23                    # resposta do Espírito, no formato final
+
+Modo antigo, em lotes conferidos por um agente (mais lento; só se for realmente necessário):
+
+    python3 candidatos.py lote "o que é espírito?" 1 saida.txt   # lote 1 = 10, 2 = 30, 3 a 6 = 40
+    python3 candidatos.py conferir saida.txt "CODIGO;1:N,2:N,...:S"
 
 Usa o índice em indice/ (já vem no repositório) e o modelo em modelo_onnx/.
 """
@@ -108,5 +110,10 @@ def rapido(pergunta, n="30"):
 
 if __name__ == "__main__":
     cmd, *args = sys.argv[1:] or ["ajuda"]
-    {"lote": lote, "conferir": conferir, "resposta": resposta, "rapido": rapido}.get(
-        cmd, lambda *a: print(__doc__))(*args)
+    comandos = {"lote": lote, "conferir": conferir, "resposta": resposta, "rapido": rapido}
+    if cmd == "ajuda":
+        print(__doc__)
+    elif cmd in comandos:
+        comandos[cmd](*args)
+    else:                      # padrão: o primeiro argumento já é a pergunta
+        rapido(cmd, *args)

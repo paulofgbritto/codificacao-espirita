@@ -5,7 +5,7 @@ description: "Inicializa a sessão do projeto Espiritismo: prepara o banco e abr
 
 # espiritismo-init
 
-Abre os 8 Haiku **uma vez por sessão**. Depois, as skills `perguntas-livro-espiritos` e `copia-pergunta` só mandam mensagens a eles (SendMessage), sem abrir agentes novos: o custo fixo de ~60 mil tokens por agente é pago só aqui, e o resto é relido do cache.
+Abre os 8 Haiku **uma vez por sessão**. Depois, a skill `perguntas-livro-espiritos` só manda mensagens a eles (SendMessage), sem abrir agentes novos: o custo fixo de ~60 mil tokens por agente é pago só aqui, e o resto é relido do cache.
 
 Se `/home/claude/haikus.json` já existe, a sessão já está inicializada: não faça nada.
 
@@ -21,9 +21,12 @@ pip install --break-system-packages -q onnxruntime onnxruntime-extensions rank_b
 if [ ! -f modelo_onnx/bge_m3_model.onnx_data ]; then
   mkdir -p /home/claude/_modelo && cd /home/claude/_modelo
   curl -sSL -o onnx.zip https://github.com/yuniko-software/bge-m3-onnx/releases/latest/download/onnx.zip
-  unzip -oq onnx.zip && mkdir -p /home/claude/codificacao-espirita/modelo_onnx
-  mv onnx/bge_m3_* /home/claude/codificacao-espirita/modelo_onnx/ && rm -rf /home/claude/_modelo
+  unzip -oq onnx.zip && rm onnx.zip && mkdir -p /home/claude/codificacao-espirita/modelo_onnx
+  find . -type f -name 'bge_m3_*' -exec mv {} /home/claude/codificacao-espirita/modelo_onnx/ \;
+  cd /home/claude && rm -rf /home/claude/_modelo
 fi
+cd /home/claude
+ls codificacao-espirita/modelo_onnx  # deve listar bge_m3_model.onnx, bge_m3_model.onnx_data e bge_m3_tokenizer.onnx
 ```
 Timeout de 600000 ms (o modelo tem 1,3 GB). O índice já vem pronto no repositório; nunca baixe nada pelo conector do Google Drive.
 
@@ -54,5 +57,5 @@ Se algum não respondeu `PRONTO`, abra só aquele de novo. Responda ao usuário 
 
 ## Regras
 - Os ids valem só nesta sessão. Em sessão nova, rode o init de novo.
-- H4 tem o menor bloco (~12 mil tokens) e também atende a `copia-pergunta`.
+- A skill `copia-pergunta` não usa estes agentes (busca direta, sem init).
 - Se um SendMessage a um Hn falhar (agente não encontrado), reabra só aquele Hn com o prompt acima e atualize o haikus.json.

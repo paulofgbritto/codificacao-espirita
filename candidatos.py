@@ -93,7 +93,7 @@ def resposta(pid):
         linhas.append(f"{recuo}{'— ' if k == 0 else ''}*{par}*")
     linhas[-1] += "”"
     print("  \n".join(linhas))
-    print(f"\nLivro dos Espíritos, pergunta {pid}.")
+    print("\nLivro dos Espíritos")
 
 
 def rapido(pergunta, n="30"):

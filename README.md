@@ -16,7 +16,7 @@ Teste: `python codificacao_db.py stats`
 
 ## Conteúdo e identificadores
 
-1019 perguntas + 197 subperguntas, 29 capítulos, 161 seções, 495 páginas, 120 temas, Índice geral (668 assuntos), 191 comentários de Kardec, 19 itens numerados escritos por Kardec, 2 textos de Kardec sem número, 25 notas de rodapé, Introdução, Prolegômenos e Conclusão.
+1019 perguntas + 197 subperguntas, 29 capítulos, 161 seções, 495 páginas, 120 temas, Índice geral (668 assuntos), 191 comentários de Kardec, 19 itens numerados escritos por Kardec, 2 textos de Kardec sem número, 25 notas de rodapé, Introdução (dividida em 125 parágrafos, ids I1 a I125), Prolegômenos e Conclusão.
 
 | Id | O que é |
 |---|---|
@@ -42,6 +42,7 @@ Listas aceitam `|`, `,` ou `;` como separador.
 | Busca no texto | `buscar "orgulho egoísmo" --modo todas\|qualquer\|frase\|regex --em comentario --parte 3` |
 | Kardec | `kardec "900-919" --expandir` · `notas_kardec` · `remissoes 1000` · `citada_por 919` · `assinadas "São Luís"` |
 | Listas | `ordenar "919.a\|N4\|K919.a"` (tira repetidos, ordem do livro) · `exportar capitulos` |
+| Introdução | `anotacao I8` (parágrafo 8) · ids I1 a I125 em ordem, usados também nas matrizes e na busca (`--tipos introducao`) |
 | Outros | `texto introd.VI` · `nota 4` · `caminho perguntas/928/resposta` · `chaves capitulos` |
 
 Opções de saída: `--ids` (só números, o mais barato), `--formato curto|json`, `--campos pergunta,resposta`, `--expandir`, `--sem-subs`.

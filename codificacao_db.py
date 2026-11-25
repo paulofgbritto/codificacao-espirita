@@ -23,6 +23,7 @@ Banco: dados/livro_dos_espiritos.json (gerado por extrair_livro_dos_espiritos.py
   python codificacao_db.py caminho perguntas/182/resposta   acesso direto por caminho
   python codificacao_db.py chaves capitulos          lista as chaves de um caminho
   python codificacao_db.py texto introd.VI           Introdução, Conclusão, Prolegômenos
+  python codificacao_db.py anotacao I8               parágrafo 8 da Introdução (ids I1 a I125, em ordem)
   python codificacao_db.py nota 4                    nota de rodapé
   python codificacao_db.py kardec "900-919"          perguntas com comentário de Kardec (--expandir mostra)
   python codificacao_db.py notas_kardec              notas de rodapé escritas por Kardec
@@ -127,6 +128,7 @@ class LivroDosEspiritos:
         self.db = json.loads(arquivo.read_text(encoding="utf-8"))
         self.P = self.db["perguntas"]
         self.C = self.db["capitulos"]
+        self.I = self.db.get("introducao", {})          # parágrafos da Introdução: I1, I2, ...
         self.ordem = list(self.P)                       # ordem do livro
         self.pos = {k: i for i, k in enumerate(self.ordem)}
         self._busca = {k: {c: norm(v.get(c) or "") for c in ("pergunta", "texto", "resposta", "comentario")}
@@ -392,6 +394,12 @@ class LivroDosEspiritos:
     def anotacao(self, ref):
         """'K919.a' = comentário de Kardec da pergunta 919.a;  'N4' = nota de rodapé 4."""
         r = str(ref).strip()
+        if re.fullmatch(r"[Ii]\d+", r):
+            i = self.I.get("I" + r[1:])
+            if not i:
+                raise ErroConsulta(f"Parágrafo {r} da Introdução não existe")
+            return {"id": i["id"], "tipo": "introducao", "item": i["item"], "paragrafo": i["paragrafo"],
+                    "pagina": i["pagina_inicio"], "notas": i.get("notas", []), "texto": i["texto"]}
         if r[:2].upper() == "KE":
             t = self.db.get("textos_kardec", {}).get("Ke" + r[2:].strip())
             if not t:
@@ -410,8 +418,9 @@ class LivroDosEspiritos:
             if not n:
                 raise ErroConsulta(f"Nota {r} não existe")
             return {"id": f"N{n['numero']}", "tipo": "nota_rodape", "autor": n["autor"],
-                    "perguntas": n["perguntas"], "pagina": n["pagina"], "texto": n["texto"]}
-        raise ErroConsulta(f"Identificador de anotação inválido: {ref!r} (use K919.a ou N4)")
+                    "perguntas": n["perguntas"], "introducao": n.get("introducao", []),
+                    "pagina": n["pagina"], "texto": n["texto"]}
+        raise ErroConsulta(f"Identificador de anotação inválido: {ref!r} (use K919.a, N4 ou I8)")
 
     def ids_anotacoes(self, pergunta):
         """Identificadores de anotações ligadas a uma pergunta: ['K919.a', 'N24']."""
@@ -421,8 +430,9 @@ class LivroDosEspiritos:
     def separar_ids(self, spec):
         """'180, 919a, K919.a, N4' -> (ids de perguntas, ids de anotações)"""
         itens = [x.strip() for x in re.split(r"[,;|]+", str(spec)) if x.strip()]
-        anot = [x.upper()[0] + x[1:] for x in itens if x[:1].upper() in "KN"]
-        perg = [x for x in itens if x[:1].upper() not in "KN"]
+        eh_anot = lambda x: x[:1].upper() in "KN" or re.fullmatch(r"[Ii]\d+", x)
+        anot = [x.upper()[0] + x[1:] for x in itens if eh_anot(x)]
+        perg = [x for x in itens if not eh_anot(x)]
         return (self.expandir(perg) if perg else []), anot
 
     def ordenar(self, spec):
@@ -433,7 +443,10 @@ class LivroDosEspiritos:
             if x.upper() == "NENHUMA":
                 continue
             t = x[:1].upper()
-            if x[:2].upper() == "KE":
+            if re.fullmatch(r"[Ii]\d+", x):
+                a = self.anotacao(x)
+                chaves[a["id"]] = (-2, int(x[1:]))             # a Introdução vem antes da 1ª pergunta
+            elif x[:2].upper() == "KE":
                 a = self.anotacao(x)
                 chaves[a["id"]] = (self.pos[a["antes_de"]], -1) if a["antes_de"] else (len(self.ordem), -1)
             elif t == "K":
@@ -441,7 +454,9 @@ class LivroDosEspiritos:
                 chaves[a["id"]] = (self.pos[a["pergunta"]], 1)
             elif t == "N":
                 a = self.anotacao(x)
-                if a["perguntas"]:
+                if a.get("introducao"):                         # nota chamada num parágrafo da Introdução
+                    chaves[a["id"]] = (-2, int(a["introducao"][0][1:]) + 0.5)
+                elif a["perguntas"]:
                     chaves[a["id"]] = (self.pos[a["perguntas"][0]], 2)
                 else:
                     antes = [k for k in self.ordem if self.P[k]["pagina_inicio"] <= a["pagina"]]
@@ -477,6 +492,14 @@ class LivroDosEspiritos:
                     linhas.append(f"[N{n}] Nota: {self.db['notas_rodape'][n]['texto']}")
                 linhas.append("")
             (pasta / f"{c['id']}.txt").write_text("\n".join(linhas), encoding="utf-8")
+        if self.I:                                       # a Introdução vai num arquivo próprio: INTRO.txt
+            linhas = [f"# INTRO – Introdução ao estudo da Doutrina Espírita (parágrafos {next(iter(self.I))} a {list(self.I)[-1]})", ""]
+            for i in self.I.values():
+                linhas.append(f"[{i['id']}] Introdução, item {i['item']}: {i['texto']}")
+                for n in i.get("notas", []):
+                    linhas.append(f"[{n}] Nota: {self.db['notas_rodape'][n[1:]]['texto']}")
+                linhas.append("")
+            (pasta / "INTRO.txt").write_text("\n".join(linhas), encoding="utf-8")
         return sorted(str(x) for x in pasta.glob("P*C*.txt"))
 
     # ---------- textos, notas, caminhos ----------
@@ -539,6 +562,7 @@ class LivroDosEspiritos:
             "itens_texto_kardec": [p["id"] for p in P if p.get("tipo") == "kardec"],
             "textos_kardec_sem_numero": len(self.db.get("textos_kardec", {})),
             "textos": list(self.db["textos"]),
+            "paragrafos_introducao": len(self.I),
         }
 
 

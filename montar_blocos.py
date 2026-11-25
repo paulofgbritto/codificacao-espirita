@@ -1,7 +1,7 @@
 """Gera os 8 blocos de O Livro dos Espíritos usados pela skill perguntas-livro-espiritos.
 
 Uso: python montar_blocos.py [pasta_saida]   (padrão: blocos/)
-Exporta os 29 capítulos com codificacao_db.py e junta-os em 8 arquivos
+Exporta a Introdução (INTRO) e os 29 capítulos com codificacao_db.py e junta-os em 8 arquivos
 (bloco1.txt ... bloco8.txt) de tamanho parecido, sem cortar capítulos.
 Não usa IA: não gasta tokens.
 """
@@ -17,7 +17,7 @@ BLOCOS = [
     ["P1C01", "P1C02", "P1C03", "P1C04", "P2C01"],
     ["P2C02", "P2C03", "P2C04", "P2C05"],
     ["P2C06", "P2C07"],
-    ["P2C08"],
+    ["INTRO", "P2C08"],       # a Introdução (I1 a I125) vai no bloco 4, o menor
     ["P2C09", "P2C10", "P2C11", "P3C01"],
     ["P3C02", "P3C03", "P3C04", "P3C05", "P3C06", "P3C07", "P3C08"],
     ["P3C09", "P3C10", "P3C11", "P3C12"],

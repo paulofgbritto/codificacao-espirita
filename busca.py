@@ -55,6 +55,7 @@ TIPOS = {
     "comentario": "comentario",   # K163
     "nota": "nota",               # N4
     "texto_kardec": "texto_kardec",  # Ke1
+    "introducao": "introducao",   # I1 a I125 (parágrafos da Introdução)
 }
 
 # ───────────────────────────── texto ─────────────────────────────
@@ -95,6 +96,9 @@ def trechos(texto, tamanho=1200, sobra=200):
 def carregar_itens(le):
     """Lista de itens buscáveis, na ordem do livro."""
     itens = []
+    for i in le.I.values():                       # a Introdução vem antes da 1ª pergunta
+        itens.append({"id": i["id"], "tipo": "introducao", "pergunta": "", "resposta": i["texto"],
+                      "secao": f"Introdução, item {i['item']}"})
     for pid in le.ordem:
         p = le.P[pid]
         if p["tipo"] == "pergunta":
@@ -326,6 +330,8 @@ class Buscador:
         x = x.strip()
         if x[:2].upper() == "KE":
             return "Ke" + x[2:]
+        if re.fullmatch(r"[Ii]\d+", x):
+            return "I" + x[1:]
         if x[:1].upper() in "KN":
             return x[:1].upper() + (self.le.normalizar_id(x[1:]) if x[:1].upper() == "K" else x[1:])
         return self.le.normalizar_id(x)
@@ -352,7 +358,8 @@ class Buscador:
                 cab = {"pergunta": f"[{i}]", "kardec": f"[{i}] Kardec",
                        "comentario": f"[{i}] Comentário de Kardec à pergunta {it.get('de', '')}",
                        "nota": f"[{i}] Nota de rodapé ({it['secao']})",
-                       "texto_kardec": f"[{i}] Texto de Kardec"}[it["tipo"]]
+                       "texto_kardec": f"[{i}] Texto de Kardec",
+                       "introducao": f"[{i}] {it['secao']}"}[it["tipo"]]
                 linhas = [f"{cab}  —  relevância {s:.0f}%"]
                 if it["pergunta"]:
                     linhas += [f"P: {it['pergunta']}", f"R: {it['resposta']}"]
@@ -377,7 +384,7 @@ def parser():
         p.add_argument("--duvida", action="append", default=[],
                        help="dúvida separada (pode repetir); o item fica com a maior nota")
         p.add_argument("--formato", default="ids", choices=["ids", "ids-nota", "linhas", "completo", "json"])
-        p.add_argument("--tipos", default="", help="ex.: pergunta,comentario,nota,kardec,texto_kardec")
+        p.add_argument("--tipos", default="", help="ex.: pergunta,comentario,nota,kardec,texto_kardec,introducao")
         p.add_argument("--reranker", default=RERANKER_PADRAO)
         p.add_argument("--sem-reranker", action="store_true", help="mais rápido, nota só relativa")
 

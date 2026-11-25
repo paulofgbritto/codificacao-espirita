@@ -83,6 +83,9 @@ def bloco_anotacao(le, ref):
     if a["tipo"] == "texto_kardec":
         return (f"[{a['id']}]  p.{a['pagina']}  Texto de Kardec sem número ({a['capitulo']}, "
                 f"{a['secao'] or 'início do capítulo'}, antes da pergunta {a['antes_de']})\n{a['texto']}")
+    if a["tipo"] == "introducao":
+        return (f"[{a['id']}]  p.{a['pagina']}  Introdução, item {a['item']}, parágrafo {a['paragrafo']}\n"
+                f"{a['texto']}")
     if a["tipo"] == "comentario_kardec":
         return f"[{a['id']}]  p.{a['pagina']}  Comentário de Kardec à pergunta {a['pergunta']}\n{a['texto']}"
     lig = f" (ligada a: {', '.join(a['perguntas'])})" if a["perguntas"] else ""
@@ -104,7 +107,7 @@ def montar(le, lista, completo=False, manter_ordem=False):
     blocos = []
     for i in itens:
         try:
-            b = bloco_anotacao(le, i) if i[:1] in "KN" else bloco_pergunta(le, i, completo, set(itens))
+            b = bloco_anotacao(le, i) if i[:1] in "KNI" else bloco_pergunta(le, i, completo, set(itens))
             if notas.get(i) is not None:            # relevância dada pela parte 1
                 cab_item, _, resto = b.partition("\n")
                 b = f"{cab_item}  relevância {notas[i]:g}%\n{resto}"

@@ -17,6 +17,7 @@ O que é extraído:
     seção, página inicial/final e temas;
   - estrutura de partes, capítulos e seções;
   - Introdução (itens I–XVII), Prolegômenos, Conclusão (I–IX), Nota Explicativa;
+  - Introdução dividida em parágrafos: `introducao` (ids I1, I2, ..., na ordem do livro);
   - texto limpo de cada página (numeração impressa do livro);
   - notas de rodapé;
   - Índice geral do livro (assunto → perguntas).
@@ -242,9 +243,11 @@ def classificar(paginas):
 # ----------------------------------------------------------------------------
 # Parágrafos
 # ----------------------------------------------------------------------------
-def montar_paragrafos(linhas_pag, modo_espaco, e_titulo=None):
+def montar_paragrafos(linhas_pag, modo_espaco, e_titulo=None, estrito=False):
     """linhas_pag: lista de (texto_bruto, pagina). Devolve lista de
-    {'t': texto, 'p0': pag_inicio, 'p1': pag_fim}."""
+    {'t': texto, 'p0': pag_inicio, 'p1': pag_fim}.
+    estrito=True (Introdução): só há parágrafo novo depois de pontuação final (. ? ! : ; » ” ))
+    e, se a linha tiver espaço no fim, só quando ela for curta (< 60 caracteres)."""
     pars = []
     atual = None
     continua = False
@@ -267,6 +270,9 @@ def montar_paragrafos(linhas_pag, modo_espaco, e_titulo=None):
             pars.append(atual)
         if e_titulo is not None and e_titulo(txt) and atual["t"] == txt:
             continua = False
+        elif estrito:
+            fim = re.search(r"[.?!:;”»)\"]\s*\d*(,\s*\d+)*$", txt)
+            continua = l.endswith("-") or not (fim and (not l.endswith(" ") or len(txt) < 60))
         elif modo_espaco:
             continua = l.endswith(" ") or l.endswith("-")
         else:
@@ -563,12 +569,13 @@ def parsear_textos(pags, modo_espaco):
                 elif atual is not None:
                     atual["linhas"].append((l, pg))
             for b in blocos:
-                pars = montar_paragrafos(b["linhas"], modo_espaco)
+                pars = montar_paragrafos(b["linhas"], modo_espaco, estrito=(reg == "introducao"))
                 chave = f"{prefixo[reg]}.{int_para_romano(b['n'])}"
                 textos[chave] = {"id": chave, "obra_parte": nome, "item": int_para_romano(b["n"]),
                                  "texto": "\n".join(p["t"] for p in pars),
                                  "pagina_inicio": b["p0"],
-                                 "pagina_fim": pars[-1]["p1"] if pars else b["p0"]}
+                                 "pagina_fim": pars[-1]["p1"] if pars else b["p0"],
+                                 "paragrafos": pars}
         else:
             pars = montar_paragrafos(linhas, modo_espaco)
             chave = reg
@@ -576,6 +583,37 @@ def parsear_textos(pags, modo_espaco):
                              "texto": "\n".join(p["t"] for p in pars),
                              "pagina_inicio": linhas[0][1], "pagina_fim": linhas[-1][1]}
     return textos
+
+
+def ligar_notas_introducao(introducao, notas):
+    """Tira do texto a chamada de nota colada à palavra (Proteu,1 / errante;2) e liga cada nota
+    de rodapé ao parágrafo da Introdução em que ela foi chamada."""
+    for n in notas.values():
+        n.setdefault("introducao", [])
+    for it in introducao.values():
+        it["notas"] = []
+        for k, n in notas.items():
+            if it["pagina_inicio"] <= n["pagina"] <= it["pagina_fim"] and n["pagina"] < 50:
+                novo = re.sub(rf"(?<=[^\d\s]){k}(?=\s|$)", "", it["texto"])
+                if novo != it["texto"]:
+                    it["texto"] = novo
+                    it["notas"].append(f"N{k}")
+                    n["introducao"].append(it["id"])
+
+
+def montar_introducao(textos):
+    """Cada parágrafo da Introdução vira um item I1, I2, ... (ordem do livro), com o item romano
+    de origem (I a XVII) e o número do parágrafo dentro dele."""
+    intro, n = {}, 0
+    for chave in sorted((k for k in textos if k.startswith("introd.")), key=lambda k: romano_para_int(k.split(".")[1])):
+        for j, par in enumerate(textos[chave].pop("paragrafos"), 1):
+            n += 1
+            intro[f"I{n}"] = {"id": f"I{n}", "tipo": "introducao", "item": textos[chave]["item"],
+                              "paragrafo": j, "texto": par["t"],
+                              "pagina_inicio": par["p0"], "pagina_fim": par["p1"]}
+    for k, v in textos.items():
+        v.pop("paragrafos", None)
+    return intro
 
 
 # ----------------------------------------------------------------------------
@@ -662,6 +700,7 @@ def extrair(caminho):
     avisos = []
     capitulos, itens, textos_k = parsear_partes(pags, modo_espaco, avisos)
     textos = parsear_textos(pags, modo_espaco)
+    introducao = montar_introducao(textos)
     indice = parsear_indice(pags, modo_espaco)
 
     perguntas = {it["id"]: it for it in itens}
@@ -707,6 +746,8 @@ def extrair(caminho):
             notas[k] = {"numero": int(k), "autor": autor, "texto": v, "pagina": p["numero"],
                         "perguntas": [it["id"] for it in itens if k in it["notas"]]}
 
+    ligar_notas_introducao(introducao, notas)
+
     partes = []
     for i, (ordinal, titulo) in enumerate(PARTES, 1):
         caps = [c for c in capitulos if c["parte"] == i]
@@ -728,12 +769,13 @@ def extrair(caminho):
     db = {
         "meta": {"obra": "O Livro dos Espíritos", "autor": "Allan Kardec",
                  "traducao": "Guillon Ribeiro", "editora": "FEB",
-                 "fonte": Path(caminho).name, "versao_esquema": 2},
+                 "fonte": Path(caminho).name, "versao_esquema": 3},
         "partes": partes,
         "capitulos": {c["id"]: c for c in capitulos},
         "perguntas": perguntas,
         "textos_kardec": {k["id"]: k for k in textos_k},
         "textos": textos,
+        "introducao": introducao,
         "paginas": paginas_out,
         "notas_rodape": notas,
         "indice_geral": indice,

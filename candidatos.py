@@ -1,11 +1,13 @@
 """Busca de perguntas de O Livro dos Espíritos para a skill copia-pergunta.
 
-Modo padrão (rápido): uma busca só, lista as 30 perguntas mais parecidas com a do usuário
-(com o id entre colchetes) e mostra um trecho da resposta das 3 primeiras.
+Modo padrão (rápido): uma busca só, lista os 30 itens do livro mais parecidos com a do usuário
+(com o id entre colchetes) e mostra um trecho da resposta das 3 primeiras perguntas. Os itens são
+perguntas (180), comentários de Kardec (K163), notas (N4), textos de Kardec (59, Ke1) e
+parágrafos da Introdução (I8).
 
     python3 candidatos.py "o que é espírito?"            # = rapido, 30 perguntas
     python3 candidatos.py rapido "o que é espírito?" 60  # mais perguntas
-    python3 candidatos.py resposta 23                    # resposta do Espírito, no formato final
+    python3 candidatos.py resposta 23 K163 I8            # um ou mais itens, no formato final
 
 Modo antigo, em lotes conferidos por um agente (mais lento; só se for realmente necessário):
 
@@ -28,17 +30,17 @@ TAMANHOS = [10, 30, 40, 40, 40, 40]
 MAX_RESPOSTA = 700   # caracteres da resposta mostrados ao avaliador
 
 
-def _ordem(pergunta):
+def _ordem(pergunta, so_perguntas=False):
     import busca
     b = busca.Buscador(usar_reranker=False)
     notas = b.pontuar(pergunta, candidatos=0, rerank=False)
     ids = [i for i in sorted(notas, key=lambda i: -notas[i])
-           if b.itens[b.pos[i]]["tipo"] == "pergunta"]
+           if not so_perguntas or b.itens[b.pos[i]]["tipo"] == "pergunta"]
     return b, ids
 
 
 def lote(pergunta, numero, saida):
-    b, ids = _ordem(pergunta)
+    b, ids = _ordem(pergunta, so_perguntas=True)
     n = int(numero)
     if not 1 <= n <= len(TAMANHOS):
         sys.exit(f"lote deve ser de 1 a {len(TAMANHOS)}")
@@ -88,12 +90,30 @@ def resposta(*pids):
 def _uma(pid):
     from codificacao_db import LivroDosEspiritos
     le = LivroDosEspiritos()
-    p = le.P.get(pid)
-    if not p or p["tipo"] != "pergunta":
-        sys.exit(f"{pid} não é uma pergunta do livro.")
+    recuo = " "
+    pid = str(pid).strip()
     # Formato da skill copia-pergunta: tudo entre aspas, recuo de parágrafo (espaço eme),
     # "[x] — pergunta" em fonte normal e "— resposta" em itálico; citação embaixo.
-    recuo = " "
+    if re.fullmatch(r"(?i)(i\d+|ke\d+|n\d+|k\d+(\.[a-z])?)", pid) or (pid in le.P and le.P[pid]["tipo"] != "pergunta"):
+        # texto de Kardec (Introdução, comentário, nota, texto numerado ou sem número): sem pergunta/resposta
+        if pid in le.P:
+            rot, txt = "Kardec", le.P[pid]["texto"]
+        else:
+            a = le.anotacao(pid)
+            rot = {"introducao": f"Kardec, Introdução", "comentario_kardec": f"Kardec, comentário à pergunta {a.get('pergunta', '')}",
+                   "texto_kardec": "Kardec", "nota_rodape": a.get("autor", "Nota")}[a["tipo"]]
+            txt = a["texto"]
+            for pre in ("Nota de Allan Kardec:", "N.E.:"):
+                txt = txt[len(pre):] if txt.startswith(pre) else txt
+        pars = [re.sub(r"\s+", " ", x).strip() for x in re.split(r"\n", txt) if x.strip()]
+        linhas = [f"“{recuo}[{a['id'] if pid not in le.P else pid}] — {rot}: {pars[0]}"] + [f"{recuo}{x}" for x in pars[1:]]
+        linhas[-1] += "”"
+        print("  \n".join(linhas))
+        print("\nLivro dos Espíritos")
+        return
+    p = le.P.get(pid)
+    if not p or p["tipo"] != "pergunta":
+        sys.exit(f"{pid} não é um item do livro.")
     resp = p["resposta"].strip().strip("“”\"").strip()
     pars = [re.sub(r"\s+", " ", x).strip() for x in re.split(r"\n\s*\n|\n", resp) if x.strip()]
     linhas = [f"“{recuo}[{pid}] — {p['pergunta'].strip()}"]
@@ -104,14 +124,21 @@ def _uma(pid):
     print("\nLivro dos Espíritos")
 
 
+ROTULO = {"pergunta": "", "kardec": "(Kardec) ", "comentario": "(Kardec, comentário) ",
+          "nota": "(nota) ", "texto_kardec": "(Kardec) ", "introducao": "(Introdução) "}
+
+
 def rapido(pergunta, n="30"):
-    """Uma busca só: lista as n primeiras perguntas (id + pergunta) e a resposta das 3 primeiras."""
+    """Uma busca só: lista os n itens mais parecidos (perguntas, comentários e textos de Kardec,
+    notas e parágrafos da Introdução) e a resposta das 3 primeiras perguntas."""
     b, ids = _ordem(pergunta)
+    mostradas = 0
     for k, i in enumerate(ids[:int(n)], 1):
         it = b.itens[b.pos[i]]
-        p = re.sub(r"\s+", " ", it["pergunta"]).strip()
-        print(f"{k:>2} [{i}] {p[:170]}")
-        if k <= 3:
+        p = re.sub(r"\s+", " ", it["pergunta"] or it["resposta"]).strip()
+        print(f"{k:>2} [{i}] {ROTULO.get(it['tipo'], '')}{p[:170]}")
+        if it["pergunta"] and mostradas < 3:
+            mostradas += 1
             r = re.sub(r"\s+", " ", it["resposta"]).strip()
             print(f"      R: {r[:260]}")
 

@@ -7,7 +7,7 @@ description: "Parte 2 de perguntas-livro-espiritos: recebe a matriz [['id', toke
 
 ## Entrada
 - A matriz da parte 1 (skill perguntas-livro-espiritos), já cortada pelo limite de tokens: `[['180', 95, 75], ['K181', 40, 30], ['N4', 22, 45]]` (id, tokens, relevância %). Passe-a como veio, sem converter. Uma lista simples de ids (`180 | 181 | K181`) também é aceita.
-  - `919.a` = pergunta e resposta dos Espíritos; `K919.a` = comentário de Kardec; `N4` = nota de rodapé.
+  - `919.a` = pergunta e resposta dos Espíritos; `K919.a` = comentário de Kardec; `N4` = nota de rodapé; `I8` = parágrafo da Introdução do livro (I1 a I125, escrita por Kardec).
 - A situação do usuário, com todos os detalhes que ele contou (nomes, lugares, frases ditas, sentimentos). Se não vier junto, use a situação já descrita na conversa.
 - Se não houver matriz na conversa, rode antes a parte 1.
 
@@ -56,6 +56,11 @@ Cada pergunta/nota transcrita é um parágrafo; cada análise é um parágrafo.
 > Pergunta de Kardec, em fonte normal  
 > — *“Resposta dos Espíritos, em itálico, com **negrito** onde importa.”*  
 > Livro dos Espíritos, item [180]
+```
+- Formato de parágrafo da Introdução (texto de Kardec, não dos Espíritos; igual ao de nota, com outro rodapé):
+```
+> Texto do parágrafo, com **negrito** onde importa.  
+> Livro dos Espíritos, Introdução, item [I8]
 ```
 - Formato de nota/comentário de Kardec (sem a linha de resposta):
 ```

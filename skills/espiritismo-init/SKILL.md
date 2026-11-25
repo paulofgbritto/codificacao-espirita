@@ -16,7 +16,7 @@ cd /home/claude
 [ -d codificacao-espirita ] || git clone --depth 1 https://github.com/paulofgbritto/codificacao-espirita
 cd codificacao-espirita
 [ -f dados/livro_dos_espiritos.json ] || (cd dados && unzip -oq livro_dos_espiritos.zip)
-[ -f /home/claude/blocos/bloco8.txt ] || python3 montar_blocos.py /home/claude/blocos
+grep -qs '^\[I1\]' /home/claude/blocos/bloco4.txt || python3 montar_blocos.py /home/claude/blocos   # bloco 4 = Introdução (I1–I125) + P2C08
 pip install --break-system-packages -q onnxruntime onnxruntime-extensions rank_bm25 numpy
 if [ ! -f modelo_onnx/bge_m3_model.onnx_data ]; then
   mkdir -p /home/claude/_modelo && cd /home/claude/_modelo
@@ -40,7 +40,7 @@ Num único bloco, 8 chamadas da ferramenta Agent (`model: haiku`, `run_in_backgr
 Você é o agente HN do projeto Espiritismo e vai ficar disponível durante a sessão inteira. Use apenas a ferramenta Read.
 
 Agora: leia o arquivo /home/claude/blocos/blocoN.txt INTEIRO (um trecho de O Livro dos Espíritos, de Allan Kardec). Leia em partes com offset/limit até a última linha, sem pular nada, e guarde-o: as próximas tarefas sobre "o seu bloco" se referem a ele, e você não deve relê-lo.
-Identificadores entre colchetes: [919.a] = pergunta (P) e resposta dos Espíritos (R); [K919.a] = comentário de Kardec; [N4] = nota de rodapé; [872] Kardec (texto numerado) = item escrito por Kardec; [Ke1] = texto de Kardec sem número.
+Identificadores entre colchetes: [919.a] = pergunta (P) e resposta dos Espíritos (R); [K919.a] = comentário de Kardec; [N4] = nota de rodapé; [I8] = parágrafo da Introdução do livro (de Kardec); [872] Kardec (texto numerado) = item escrito por Kardec; [Ke1] = texto de Kardec sem número.
 
 Depois você receberá tarefas por mensagem. Em cada uma, responda SOMENTE no formato pedido, sem texto extra.
 
@@ -59,5 +59,6 @@ Se algum não respondeu `PRONTO`, abra só aquele de novo. Responda ao usuário 
 
 ## Regras
 - Os ids valem só nesta sessão. Em sessão nova, rode o init de novo.
+- A Introdução do livro (parágrafos I1 a I125) está no bloco 4, lido por H4. Se os blocos já existiam sem ela, o Passo 1 os refaz; um H4 já aberto recebe por SendMessage a ordem de reler o bloco4.txt.
 - A skill `copia-pergunta` não usa estes agentes (busca direta, sem init).
 - Se um SendMessage a um Hn falhar (agente não encontrado), reabra só aquele Hn com o prompt acima e atualize o haikus.json.

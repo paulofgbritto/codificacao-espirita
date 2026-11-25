@@ -8,7 +8,7 @@ description: "Dada uma situação de vida, os 8 agentes Haiku fixos (H1–H8, um
 ## Entrada
 O usuário descreve uma situação qualquer da vida (ex.: "briguei com meu pai", "perdi o emprego", "estou com medo da morte").
 
-Identificadores do banco: `[919.a]` pergunta/subpergunta (P: pergunta, R: resposta dos Espíritos); `[K919.a]` comentário de Kardec após aquela pergunta; `[N4]` nota de rodapé (de Kardec ou da Editora). O banco e os scripts ficam no GitHub público `paulofgbritto/codificacao-espirita`; nunca baixe nada pelo conector do Google Drive.
+Identificadores do banco: `[919.a]` pergunta/subpergunta (P: pergunta, R: resposta dos Espíritos); `[K919.a]` comentário de Kardec após aquela pergunta; `[N4]` nota de rodapé (de Kardec ou da Editora); `[I8]` parágrafo da Introdução do livro (I1 a I125, escrita por Kardec). O banco e os scripts ficam no GitHub público `paulofgbritto/codificacao-espirita`; nunca baixe nada pelo conector do Google Drive.
 
 ## Passo 1: sessão pronta?
 Se `/home/claude/haikus.json` não existe, rode antes a skill `espiritismo-init` (prepara o banco e abre H1–H8, cada um já com seu bloco lido). Pegue os 8 ids nesse arquivo. Não abra agentes novos.
@@ -33,11 +33,11 @@ Analise CADA item do seu bloco individualmente, um por um, comparando-o só com 
 - Use valores intermediários conforme esses pontos de referência.
 - Um item que responde muito bem a UMA dúvida tem nota alta, mesmo que não fale das outras.
 - Para uma pergunta, avalie a pergunta E a resposta dos Espíritos juntas.
-- Dê nota separada para cada comentário de Kardec [K...] e cada nota [N...], pelo próprio texto, mesmo que a pergunta ligada tenha nota baixa.
+- Dê nota separada para cada comentário de Kardec [K...], cada nota [N...] e cada parágrafo da Introdução [I...], pelo próprio texto, mesmo que a pergunta ligada tenha nota baixa.
 Faça as notas internamente; não as escreva na resposta.
 
 Formato da resposta: SOMENTE uma lista Python (matriz) com os itens de nota 30% ou mais. Cada item é uma lista de 3 elementos: ['id', tokens, nota], onde id é exatamente como aparece nos colchetes, tokens é o número escrito em (tokens: N) logo após o id e nota é a porcentagem (número inteiro).
-Exemplo: [['180', 95, 75], ['K181', 40, 30], ['N4', 22, 45]]
+Exemplo: [['180', 95, 75], ['K181', 40, 30], ['N4', 22, 45], ['I8', 60, 50]]
 Se nenhum chegar a 30%, responda apenas: []
 ```
 
@@ -55,6 +55,7 @@ Se nenhum chegar a 30%, responda apenas: []
 ## Regras
 - O modelo principal (Sonnet ou Opus) não filtra nem reavalia as listas dos agentes; apenas escreve as dúvidas e consolida.
 - Se um Hn responder fora do formato, reenvie a mensagem só a ele. Se ele não for encontrado, reabra só aquele Hn como manda o `espiritismo-init` e atualize o haikus.json.
+- A Introdução (I1 a I125) está no bloco 4, junto com o capítulo VIII da Parte 2; cada parágrafo é um item.
 - O capítulo P2C05 (bloco 2) é um único texto longo de Kardec, o item [222]: entra inteiro ou não entra.
 - Não troque os 8 agentes por uma pré-seleção pela busca (`situacao.py pool`): no teste, ela deixou de fora cerca de 40% dos itens com nota 60%+.
 - Os blocos montados antes de 24/11/2026 não têm `(tokens: N)`: nesse caso o agente pode pôr 0, e o Passo 4 preenche pelo banco.

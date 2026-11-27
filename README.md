@@ -11,6 +11,8 @@ Só Python 3.8+, sem internet e sem IA: consultas não gastam tokens. A lista co
 | `consultar_lista.py` | Recebe uma lista de ids e junta tudo em um arquivo de texto |
 | `extrair_livro_dos_espiritos.py` | Gera o banco a partir do PDF (opcional) |
 | `dados/livro_dos_espiritos.zip` | O banco; descompacte em `dados/` → `dados/livro_dos_espiritos.json` |
+| `extrair_evangelho.py` | Gera o banco de *O Evangelho segundo o Espiritismo* a partir do PDF ou do texto |
+| `dados/evangelho.zip` | Banco do Evangelho; descompacte em `dados/` → `dados/evangelho.json` |
 
 Teste: `python codificacao_db.py stats`
 
@@ -28,6 +30,20 @@ Teste: `python codificacao_db.py stats`
 | `180-182` | faixa (inclui subperguntas) |
 
 Listas aceitam `|`, `,` ou `;` como separador.
+
+## O Evangelho segundo o Espiritismo
+
+Banco separado em `dados/evangelho.json` (ainda sem busca, índice e skills). 28 capítulos, 478 itens numerados, Prefácio, Introdução (partes I a IV e os 21 pontos do resumo da doutrina de Sócrates e Platão), 29 notas de rodapé. Cada item guarda capítulo, seção (subtítulo do livro), se é das Instruções dos Espíritos, autor e local/data da comunicação, texto em parágrafos, nota de Kardec (“Nota –”), notas de rodapé e páginas.
+
+| Id | O que é |
+|---|---|
+| `5:4` | capítulo V, item 4 (capítulo:item, como se cita o livro) |
+| `0:0` | Prefácio (O Espírito de Verdade) |
+| `0:1` a `0:4` | Introdução, partes I a IV |
+| `0:4.1` a `0:4.21` | Introdução IV, pontos I a XXI de Sócrates e Platão |
+| `N4` | nota de rodapé 4 do Evangelho |
+
+Gerar de novo: `python3 extrair_evangelho.py O-evangelho-segundo-o-espiritismo.pdf -o dados/evangelho.json`
 
 ## Comandos principais
 

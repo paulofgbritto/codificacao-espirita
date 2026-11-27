@@ -1,6 +1,7 @@
 dados/livro_dos_espiritos.json
 dados/evangelho.json
 blocos/
+blocos_evangelho/
 __pycache__/
 modelo_onnx/
 indexar.log

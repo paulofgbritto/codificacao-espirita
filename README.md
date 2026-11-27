@@ -33,7 +33,7 @@ Listas aceitam `|`, `,` ou `;` como separador.
 
 ## O Evangelho segundo o Espiritismo
 
-Banco separado em `dados/evangelho.json` (ainda sem busca, índice e skills). 28 capítulos, 478 itens numerados, Prefácio, Introdução (partes I a IV e os 21 pontos do resumo da doutrina de Sócrates e Platão), 29 notas de rodapé. Cada item guarda capítulo, seção (subtítulo do livro), se é das Instruções dos Espíritos, autor e local/data da comunicação, texto em parágrafos, nota de Kardec (“Nota –”), notas de rodapé e páginas.
+Banco separado em `dados/evangelho.json`, com API própria (`evangelho_db.py`, mesmo estilo de `codificacao_db.py`). 28 capítulos, 478 itens numerados, Prefácio, Introdução (partes I a IV e os 21 pontos do resumo da doutrina de Sócrates e Platão), 29 notas de rodapé. Cada item guarda capítulo, seção (subtítulo do livro), se é das Instruções dos Espíritos, autor e local/data da comunicação, texto em parágrafos, nota de Kardec (“Nota –”), notas de rodapé e páginas.
 
 | Id | O que é |
 |---|---|
@@ -43,7 +43,25 @@ Banco separado em `dados/evangelho.json` (ainda sem busca, índice e skills). 28
 | `0:4.1` a `0:4.21` | Introdução IV, pontos I a XXI de Sócrates e Platão |
 | `N4` | nota de rodapé 4 do Evangelho |
 
-Gerar de novo: `python3 extrair_evangelho.py O-evangelho-segundo-o-espiritismo.pdf -o dados/evangelho.json`
+Listas e faixas: `"5:4-8, 5:20-6:3, 12:9 | N4"`; `V` ou `cap 5` numa lista = capítulo inteiro. Aceita também `V:4`, `V.4` e `"cap. V, item 4"`.
+
+`python evangelho_db.py <comando> [args] [opções]` (lista completa: `python evangelho_db.py ajuda`)
+
+| Para | Comando |
+|---|---|
+| Itens | `item 5:4` · `itens "5:4-8, N4"` · `vizinhos 5:4` · `aleatorio` |
+| Estrutura | `capitulo 5` (ou `V`, `aflitos`) · `capitulos` · `secao "aflições"` · `secoes 12` · `prefacio` · `introducao` · `socrates` |
+| Espíritos | `instrucoes 12` · `autor Fénelon` · `autores` · `local "Paris, 1862"` |
+| Bíblia | `evangelho "Mateus, 5:17"` (entende faixas como `3:1 a 12`) · `grupo doentes` (preces do cap. XXVIII) |
+| Busca | `buscar "perdão inimigos"` · `--modo frase` · `--capitulo 12` · `--instrucoes` · `--autor Agostinho` |
+| Notas e páginas | `nota 4` · `notas` · `notas_kardec` · `pagina 120` |
+| Outros | `ordenar "10:6, N4, 5:4"` · `exportar pasta` · `caminho itens/5:4/autor` · `stats` |
+
+Opções: `--ids`, `--formato texto|json|ids|curto`, `--expandir`, `--campos texto,secao,autor,...`. Cada item sai com o rodapé de citação (`O Evangelho segundo o Espiritismo, cap. V, item 4.`).
+
+Blocos para os agentes: `python montar_blocos.py --evangelho [pasta]` gera 7 blocos de ~25 a 34 mil tokens, sempre com capítulos inteiros (Prefácio e Introdução + I–II, III–VI, VII–XI, XII–XV, XVI–XX, XXI–XXVII, XXVIII).
+
+Gerar o banco de novo: `python3 extrair_evangelho.py O-evangelho-segundo-o-espiritismo.pdf -o dados/evangelho.json`
 
 ## Comandos principais
 

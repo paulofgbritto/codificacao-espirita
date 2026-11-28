@@ -48,6 +48,8 @@ from extrair_evangelho import juntar as _juntar
 
 def juntar(a, b):
     """Junta duas linhas; "dizer-" + "-se" (hífen repetido na linha seguinte) vira "dizer-se"."""
+    if a.endswith("\u2060"):
+        return a[:-1] + b.lstrip()
     if a.endswith("-") and not a.endswith(" -") and b.lstrip().startswith("-"):
         return a + b.lstrip()[1:]
     return _juntar(a, b)
@@ -64,6 +66,7 @@ RE_VERBETE = re.compile(r"^([A-ZÀ-Ý][\wÀ-ÿ’'-]*(?: [\wÀ-ÿ’'-]+)?)\s*(?
 RE_LOCAL = re.compile(r"^\(([^()]*)\)\.?$")
 RE_SO_ORDINAL = re.compile(r"^\d{1,2}\s?[oºaª°]$")
 FIM_FRASE = re.compile(r"[.?!”»)]$")
+RE_DIALOGO = re.compile(r"^(\d{1,3}\s?\.\s|— ?R\.|R\.\s|— ?P\.|P\.\s)")
 
 LIVROS = {
     "mediuns": {"titulo": "O Livro dos Médiuns", "curto": "Livro dos Médiuns",
@@ -109,16 +112,45 @@ def preparar(pags, cfg):
     sumario = [l for L in pags[:ini] for l in L]
     pags = pags[ini:fim]
 
+    topo = cfg["cabecalho"] == "topo"
+
+    def cabecalho(L):
+        if len(L) < 2:
+            return None
+        if topo and L[1].strip().isdigit():
+            return L[0].strip()
+        if not topo and L[-1].strip().isdigit():
+            return L[-2].strip()
+        return None
+    vistos = Counter(h for h in map(cabecalho, pags) if h and len(h) < 90)
+    comuns = sorted((h for h, n in vistos.items() if n >= 2), key=len, reverse=True)
+
     corpos, nums = [], []
     for L in pags:
         L = list(L)
         num = None
-        if cfg["cabecalho"] == "topo" and len(L) > 1 and L[1].strip().isdigit() and len(L[0].strip()) < 90:
-            num = int(L[1].strip())
-            L = L[2:]
-        elif cfg["cabecalho"] == "base" and len(L) > 1 and L[-1].strip().isdigit() and len(L[-2].strip()) < 90:
-            num = int(L[-1].strip())
-            L = L[:-2]
+        h = cabecalho(L)
+        if h is not None:
+            resto = None
+            if not (h in comuns or len(h) < 60):
+                # cabeçalho grudado na última linha do texto: "…hino de reconheciEspíritos felizes"
+                suf = next((c for c in comuns if h.endswith(c) and len(h) > len(c)), None)
+                pre = next((c for c in comuns if h.startswith(c) and len(h) > len(c)), None)
+                if not topo and suf:
+                    resto = h[:-len(suf)].rstrip()
+                    if resto[-1:].isalpha() and h[-len(suf) - 1].isalpha():
+                        resto += "\u2060"               # palavra partida na colagem: junta sem espaço
+                elif topo and pre:
+                    resto = h[len(pre):].lstrip()
+                else:
+                    h = None
+            if h is not None:
+                if topo:
+                    num = int(L[1].strip())
+                    L = ([resto] if resto else []) + L[2:]
+                else:
+                    num = int(L[-1].strip())
+                    L = L[:-2] + ([resto] if resto else [])
         corpos.append(L)
         nums.append(num)
     for k in range(len(nums) - 1, -1, -1):          # aberturas de capítulo não têm cabeçalho:
@@ -237,6 +269,7 @@ class Montador:
         self.pinfo = None
         self.fechou = True
         self.ult = ""
+        self.i = 0
         self.pendentes = []
 
     # --- partes e capítulos
@@ -316,7 +349,7 @@ class Montador:
         self.atual["notas"] += chamadas
         self.par = resto
         self.pinfo = {"notas": list(chamadas), "p0": pag, "p1": pag}
-        self.fechou = fim_de_paragrafo(bruto)
+        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(bruto)
         self.ult = bruto
 
     def fechar_par(self):
@@ -345,6 +378,15 @@ class Montador:
         self.itens[u["id"]] = u
         self.ordem.append(u["id"])
 
+    def linha_solta(self, bruto):
+        """Linha curta que termina sem espaço (assinatura, título, nome) e é seguida de outra que começa
+        com maiúscula: fecha o parágrafo, para não grudar no parágrafo seguinte."""
+        t = bruto.strip()
+        if bruto.endswith(" ") or not t or len(t) > 50 or not t[:1].isupper() or re.search(r"[,;:–—-]$", t):
+            return False
+        prox = self.L[self.i + 1][0].strip() if self.i + 1 < len(self.L) else ""
+        return not prox or bool(re.match(r"^[A-ZÀ-Ú0-9“\"(—–«]", prox))
+
     def pode_abrir(self):
         """A linha anterior fecha parágrafo, termina em pontuação ou é fim de linha tipográfica."""
         return self.fechou or bool(self.par and FIM_FRASE.search(self.par.strip())) or not self.ult.endswith(" ")
@@ -359,6 +401,9 @@ class Montador:
                 self.avisos.append("linha fora de unidade (p. %s): %s" % (pag, txt[:70]))
                 return
         self.atual["notas"] += chamadas
+        if self.par is not None and not self.fechou and FIM_FRASE.search(self.par.strip()) and \
+                RE_DIALOGO.match(txt):
+            self.fechou = True                      # "…me iludiu. " + "5. Dissestes…" / "— R. …"
         if self.par is None or self.fechou:
             self.fechar_par()
             self.par = txt
@@ -368,7 +413,7 @@ class Montador:
         self.pinfo["notas"] += chamadas
         self.pinfo["p1"] = pag
         self.atual["pagina_fim"] = pag
-        self.fechou = fim_de_paragrafo(bruto)
+        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(bruto)
         self.ult = bruto
 
     def assina(self, u):
@@ -395,6 +440,10 @@ class Montador:
         else:
             nome = p
         secs = {norm(s) for c in self.capitulos for s in c["secoes"]}
+        if re.fullmatch(r"[A-ZÀ-Ú]\.(?: ?[A-ZÀ-Ú]\.)*", nome):    # assinatura só com iniciais: "P."
+            u["autor"], u["local_data"] = nome, local
+            del pars[k:]
+            return
         mq = re.match(r"^([A-ZÀ-Ú][\w’'. -]{1,30}), [\w’' -]{3,40}\.$", nome)
         if mq and len(nome) <= 60 and all(w[:1].isupper() or w in ("de", "da", "do", "dos", "das", "e")
                                           for w in mq.group(1).split()):
@@ -427,11 +476,30 @@ class Montador:
                 return None
         return None
 
-    def secao_por_lista(self, txt):
-        """Linha igual a uma das seções anunciadas na abertura do capítulo."""
+    def titulo_no_texto(self, j, pag):
+        """Título de seção seguido de texto sem número: fica como parágrafo da unidade aberta,
+        para o texto não perder o título (ex.: "Princípios da Doutrina Espírita…" dentro de 7:0)."""
+        prox = self.L[j][0].strip() if j < len(self.L) else ""
+        if self.atual is not None and prox and not self.inicio_unidade(prox) and not RE_CAP.match(prox):
+            self.atual["_pars"].append((self.secao, {"notas": [], "p0": pag, "p1": pag}))
+
+    def inicio_unidade(self, t):
+        return False
+
+    def secao_lista(self, i):
+        """Seção anunciada na abertura do capítulo, em 1 a 3 linhas a partir de i: (título, j) ou None."""
         if not self.cap or not self.pode_abrir():
-            return False
-        return norm(txt) in {norm(s) for s in self.cap["secoes"]}
+            return None
+        secs = {norm(s) for s in self.cap["secoes"]}
+        partes = []
+        for j in range(i, min(i + 3, len(self.L))):
+            partes.append(self.L[j][0].strip())
+            tit = re.sub(r"\s+", " ", " ".join(partes)).strip()
+            if norm(tit) in secs:
+                return tit, j + 1
+            if not self.L[j][0].endswith(" "):
+                break
+        return None
 
     def dividir_introducao(self, uid, prefixo, citacao):
         if uid not in self.itens:
@@ -501,6 +569,7 @@ class Mediuns(Montador):
         while i < len(L):
             bruto, pag, ch = L[i]
             txt = bruto.strip()
+            self.i = i
             if not txt:
                 i += 1
                 continue
@@ -559,11 +628,12 @@ class Mediuns(Montador):
                 if self.atual is None:
                     self.novo("R0", pag, tipo="regulamento", item=0, rotulo="preâmbulo")
             elif self.modo == "dissertacoes":
-                if self.secao_por_lista(txt):
+                sl = self.secao_lista(i)
+                if sl:
                     self.fechar()
-                    self.secao = txt
-                    self.pendentes += ch
-                    i += 1
+                    self.secao, j = sl
+                    self.pendentes += [x for k in range(i, j) for x in L[k][2]]
+                    i = j
                     continue
                 mr = RE_ROMANO.match(txt)
                 if mr and romano_para_int(mr.group(1)) == self.prox_d and self.pode_abrir():
@@ -659,6 +729,7 @@ class Ceu(Montador):
         while i < len(L):
             bruto, pag, ch = L[i]
             txt = bruto.strip()
+            self.i = i
             if not txt:
                 i += 1
                 continue
@@ -694,13 +765,16 @@ class Ceu(Montador):
                     self.iniciar(mi.group(2), bruto, pag, ch)
                     i += 1
                     continue
-                if self.secao_por_lista(txt):
+                sl = self.secao_lista(i)
+                if sl:
                     self.fechar_par()
-                    self.secao = txt
-                    self.pendentes += ch
+                    self.secao, j = sl
+                    self.pendentes += [x for k in range(i, j) for x in L[k][2]]
                     if self.atual is not None and not self.atual["_pars"] and self.atual["tipo"] == "abertura":
-                        self.atual["secao"] = txt
-                    i += 1
+                        self.atual["secao"] = self.secao
+                    else:
+                        self.titulo_no_texto(j, pag)
+                    i = j
                     continue
                 if self.pode_abrir():
                     sub = self.subtitulo(i, self.inicio_unidade)
@@ -784,6 +858,7 @@ class Genese(Montador):
         while i < len(L):
             bruto, pag, ch = L[i]
             txt = bruto.strip()
+            self.i = i
             if not txt:
                 i += 1
                 continue
@@ -826,11 +901,13 @@ class Genese(Montador):
                         self.grupo += " " + bruto.strip()
                     i += 1
                     continue
-                if self.secao_por_lista(txt):
+                sl = self.secao_lista(i)
+                if sl:
                     self.fechar_par()
-                    self.secao = txt
-                    self.pendentes += ch
-                    i += 1
+                    self.secao, j = sl
+                    self.pendentes += [x for k in range(i, j) for x in L[k][2]]
+                    self.titulo_no_texto(j, pag)
+                    i = j
                     continue
                 if self.pode_abrir():
                     sub = self.subtitulo(i, self.inicio_unidade)

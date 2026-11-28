@@ -66,7 +66,8 @@ RE_VERBETE = re.compile(r"^([A-ZÀ-Ý][\wÀ-ÿ’'-]*(?: [\wÀ-ÿ’'-]+)?)\s*(?
 RE_LOCAL = re.compile(r"^\(([^()]*)\)\.?$")
 RE_SO_ORDINAL = re.compile(r"^\d{1,2}\s?[oºaª°]$")
 FIM_FRASE = re.compile(r"[.?!”»)]$")
-RE_DIALOGO = re.compile(r"^(\d{1,3}\s?\.\s|— ?R\.|R\.\s|— ?P\.|P\.\s)")
+RE_ASSIN_COLADA = re.compile(r"([.!?…]”)\s+(?:—\s*)?([A-ZÀ-Ú][\w’'. -]{1,40})$")
+RE_DIALOGO = re.compile(r"^(\d{1,3}\s?\.\s|\d{1,2}\s?[aª]\s|[a-z]\)\s|— ?R\.|R\.\s|— ?P\.|P\.\s)")
 
 LIVROS = {
     "mediuns": {"titulo": "O Livro dos Médiuns", "curto": "Livro dos Médiuns",
@@ -243,6 +244,8 @@ def preparar(pags, cfg):
                 notas[n]["_sem_chamada"] = True
         linhas += [(l, num, c) for l, c in zip(corpo, chamadas)]
 
+    linhas = [(re.sub(r"^(\s*\d{1,2}[aoªº])(?=[A-ZÀ-Ú“])", r"\1 ", l), p, c) if not l.startswith("\x00") else (l, p, c)
+              for l, p, c in linhas]                 # "13aVais dar-nos" → "13a Vais dar-nos"
     # "2o" sozinho + ") A completa..." / "6a" sozinho + " Haverá..." → uma linha só
     j = []
     for l in linhas:
@@ -254,6 +257,7 @@ def preparar(pags, cfg):
     linhas = j
     for v in notas.values():
         v["texto"] = re.sub(r"\s+", " ", v["texto"]).strip()
+        v["texto"] = v["texto"].replace("assinadaGALILEU", "assinada GALILEU")   # colagem do PDF (Gênese, N29)
     return linhas, notas, sumario
 
 
@@ -349,12 +353,19 @@ class Montador:
         self.atual["notas"] += chamadas
         self.par = resto
         self.pinfo = {"notas": list(chamadas), "p0": pag, "p1": pag}
-        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(bruto)
+        resto_bruto = resto + (" " if bruto.endswith(" ") else "")
+        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(resto_bruto) or self.assinatura_colada(bruto)
+        self.fechou = self.fechou and not self.continua_minuscula()
         self.ult = bruto
 
     def fechar_par(self):
         if self.atual is not None and self.par is not None:
-            self.atual["_pars"].append((re.sub(r"\s+", " ", self.par).strip(), self.pinfo))
+            par = re.sub(r"\s+", " ", self.par).strip()
+            m = RE_ASSIN_COLADA.search(par)
+            if m and len(m.group(2).split()) <= 5:  # "…num ignaro.” Erasto" → texto + assinatura
+                self.atual["_pars"].append((par[:m.end(1)], self.pinfo))
+                par = m.group(2).strip()
+            self.atual["_pars"].append((par, self.pinfo))
         self.par, self.pinfo = None, None
         self.fechou = True
 
@@ -378,12 +389,26 @@ class Montador:
         self.itens[u["id"]] = u
         self.ordem.append(u["id"])
 
-    def linha_solta(self, bruto):
+    def assinatura_colada(self, bruto):
+        """'…num ignaro.” Erasto' no fim de linha tipográfica: fecha o parágrafo."""
+        return not bruto.endswith(" ") and bool(RE_ASSIN_COLADA.search(bruto.strip()))
+
+    def continua_minuscula(self):
+        """A linha seguinte começa com minúscula (e não é "a) …"): o parágrafo continua."""
+        prox = self.L[self.i + 1][0].strip() if self.i + 1 < len(self.L) else ""
+        return bool(re.match(r"^[a-zà-ú]", prox)) and not re.match(r"^[a-z]\)\s", prox)
+
+    def linha_solta(self, bruto, comecou=False):
         """Linha curta que termina sem espaço (assinatura, título, nome) e é seguida de outra que começa
-        com maiúscula: fecha o parágrafo, para não grudar no parágrafo seguinte."""
+        com maiúscula: fecha o parágrafo, para não grudar no parágrafo seguinte. Com espaço no fim, só
+        se for um nome ("Jobard ", "Julienne-Marie ") sozinho entre dois parágrafos."""
         t = bruto.strip()
-        if bruto.endswith(" ") or not t or len(t) > 50 or not t[:1].isupper() or re.search(r"[,;:–—-]$", t):
+        if not t or len(t) > 50 or not t[:1].isupper() or re.search(r"[,;:–—-]$", t):
             return False
+        if bruto.endswith(" "):
+            particulas = {"de", "da", "do", "dos", "das", "e", "d’", "du", "van", "von", "le", "la"}
+            if not (comecou and len(t) <= 30 and all(w[:1].isupper() or w in particulas for w in t.split())):
+                return False
         prox = self.L[self.i + 1][0].strip() if self.i + 1 < len(self.L) else ""
         return not prox or bool(re.match(r"^[A-ZÀ-Ú0-9“\"(—–«]", prox))
 
@@ -404,6 +429,7 @@ class Montador:
         if self.par is not None and not self.fechou and FIM_FRASE.search(self.par.strip()) and \
                 RE_DIALOGO.match(txt):
             self.fechou = True                      # "…me iludiu. " + "5. Dissestes…" / "— R. …"
+        comecou = self.par is None or self.fechou
         if self.par is None or self.fechou:
             self.fechar_par()
             self.par = txt
@@ -413,7 +439,8 @@ class Montador:
         self.pinfo["notas"] += chamadas
         self.pinfo["p1"] = pag
         self.atual["pagina_fim"] = pag
-        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(bruto)
+        self.fechou = fim_de_paragrafo(bruto) or self.linha_solta(bruto, comecou) or self.assinatura_colada(bruto)
+        self.fechou = self.fechou and not self.continua_minuscula()
         self.ult = bruto
 
     def assina(self, u):
@@ -429,16 +456,13 @@ class Montador:
         if m and len(pars) >= 3:
             local, k = m.group(1).strip(), k - 1
         p = pars[k]
-        mg = re.search(r"[.!?…]”\s+([A-ZÀ-Ú][^.”“]{2,45})$", p)   # assinatura colada: …seguros.” Sócrates
-        if mg and not local:
-            pars[k] = p[:mg.start(1)].rstrip()
-            u["autor"] = mg.group(1).strip()
-            return
         m2 = re.match(r"^(.{2,60}?)\s*\(([^()]{3,90})\)\.?$", p)
         if m2 and not local and re.search(r"\d{4}", m2.group(2)):
             nome, local = m2.group(1), m2.group(2).strip()
         else:
             nome = p
+        if nome.endswith("”") and "“" not in nome:
+            nome = nome[:-1]                                    # "Erasto”": assinatura dentro das aspas
         secs = {norm(s) for c in self.capitulos for s in c["secoes"]}
         if re.fullmatch(r"[A-ZÀ-Ú]\.(?: ?[A-ZÀ-Ú]\.)*", nome):    # assinatura só com iniciais: "P."
             u["autor"], u["local_data"] = nome, local
@@ -469,8 +493,11 @@ class Montador:
             prox = self.L[j + 1][0].strip() if j + 1 < len(self.L) else ""
             if inicio(prox):
                 tit = re.sub(r"\s+", " ", " ".join(partes)).strip()
-                if re.search(r"[.;:,)]$", tit):
+                if re.search(r"[.;:,)”»\"!]$", tit):
                     return None
+                if tit.endswith("?") and not (self.cap and any(norm(sc).startswith(norm(tit)[:20])
+                                                               for sc in self.cap["secoes"])):
+                    return None                              # "Eis aí o que é o espaço!" / pergunta do texto
                 return tit, j + 1
             if not self.L[j][0].endswith(" "):
                 return None
@@ -497,7 +524,7 @@ class Montador:
             tit = re.sub(r"\s+", " ", " ".join(partes)).strip()
             if norm(tit) in secs:
                 return tit, j + 1
-            if not self.L[j][0].endswith(" "):
+            if not any(sc.startswith(norm(tit)) for sc in secs):
                 break
         return None
 
@@ -651,7 +678,7 @@ class Mediuns(Montador):
                               item=0, rotulo="abertura")
             elif self.modo == "vocabulario":
                 mv = RE_VERBETE.match(txt)
-                if mv and self.fechou:
+                if mv and self.pode_abrir():
                     self.k_verb += 1
                     self.novo("V%d" % self.k_verb, pag, tipo="verbete", item=self.k_verb,
                               rotulo=mv.group(1), termo=mv.group(1))

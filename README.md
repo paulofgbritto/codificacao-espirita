@@ -72,7 +72,7 @@ Três bancos no mesmo esquema do Evangelho (`meta`, `partes`, `capitulos`, `orde
 
 | Livro | Conteúdo |
 |---|---|
-| O Livro dos Médiuns (FEB, Guillon Ribeiro) | Introdução (11 parágrafos), 2 partes, 36 capítulos, 350 itens, Regulamento (preâmbulo + 29 artigos), 34 dissertações, 24 verbetes, 25 notas; ~234 mil tokens |
+| O Livro dos Médiuns (FEB, Guillon Ribeiro) | Introdução (11 parágrafos), 2 partes, 36 capítulos, 350 itens, Regulamento (preâmbulo + 29 artigos), 34 dissertações, 25 verbetes, 25 notas; ~234 mil tokens |
 | O Céu e o Inferno (FEB, Manuel Quintão) | Primeira Parte (Doutrina, 11 capítulos) e Segunda Parte (Exemplos, 8 capítulos, 66 exemplos), 289 unidades, 70 notas; ~205 mil tokens |
 | A Gênese (FEB, Guillon Ribeiro) | Introdução (12 parágrafos), 3 partes, 18 capítulos, 646 itens, 192 notas; ~200 mil tokens |
 

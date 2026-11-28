@@ -26,6 +26,14 @@ capítulo:item, que o script reconhece sozinho.
 Ids: 5:4 (cap. V, item 4), 0:0 Prefácio, 0:1–0:4 Introdução, 0:4.3 Sócrates e Platão, N13 nota de
 rodapé do Evangelho; faixas 5:4-8 e 5:20-6:3. Cada item traz seção, Instruções dos Espíritos, autor e
 local/data, nota de Kardec e o rodapé de citação; --completo inclui as notas de rodapé de cada item.
+
+O Livro dos Médiuns, O Céu e o Inferno e A Gênese (obras_db.py): sempre com --livro (ou --mediuns,
+--ceu, --genese), porque os ids desses livros não se distinguem sozinhos dos outros.
+  python consultar_lista.py "[['159', 600, 90], ['R5', 80, 40], ['N4', 30, 35]]" --livro mediuns
+  python consultar_lista.py "E2:1.2 | 7:3-5 | N40" --ceu
+  python consultar_lista.py "14:22, I3" --genese
+Cada unidade traz parte, capítulo, seção, autor e local/data (comunicação assinada) e o rodapé de
+citação; --completo inclui as notas de rodapé de cada unidade.
 """
 import argparse
 import os
@@ -37,6 +45,9 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from codificacao_db import LivroDosEspiritos, ErroConsulta, ARQUIVO_PADRAO  # noqa: E402
 import evangelho_db  # noqa: E402
+import obras_db  # noqa: E402
+
+ERROS = (ErroConsulta, evangelho_db.ErroConsulta, obras_db.ErroConsulta, KeyError, ValueError)
 
 RE_ID_EVANGELHO = re.compile(r"^\d{1,2}:\d")
 
@@ -134,13 +145,37 @@ def bloco_evangelho(ev, i, completo, pedidos=()):
     return "\n".join(linhas)
 
 
+def bloco_obra(ob, i, completo, pedidos=()):
+    if i[:1].upper() == "N":
+        n = ob.nota(i)
+        lig = f" (ligada a {n['item']})" if n.get("item") else ""
+        return f"[{n['id']}]  p.{n['pagina']}  Nota de rodapé de {ob.titulo}{lig}\n{n['texto']}"
+    d = ob.item(i)
+    cab = f"[{d['id']}]  p.{d['pagina']}  {d['capitulo_rotulo']}"
+    if d.get("grupo"):
+        cab += f"  ({d['grupo']})"
+    if d.get("secao"):
+        cab += f"  § {d['secao']}"
+    if d.get("sessao") or d["tipo"] in ("artigo", "dissertacao", "verbete"):
+        cab += f"  — {d['rotulo']}"
+    linhas = [cab, d["texto"]]
+    if d.get("autor"):
+        linhas.append(f"— {d['autor']}" + (f" ({d['local_data']})" if d.get("local_data") else ""))
+    if completo:
+        for nid in d["notas_ids"]:
+            if nid not in pedidos:
+                linhas.append(f"Nota [{nid}]: {ob.N[nid]['texto']}")
+    linhas.append(f"Citação: {d['citacao']}")
+    return "\n".join(linhas)
+
+
 def montar(le, lista, completo=False, manter_ordem=False):
     notas = ler_matriz(lista) or {}
     itens, invalidos = [], []
     for x in separar(lista):
         try:
             itens += le.ordenar(x)          # normaliza e expande faixas (180-182, 5:4-8)
-        except (ErroConsulta, evangelho_db.ErroConsulta, KeyError, ValueError):
+        except ERROS:
             invalidos.append(x)
     if manter_ordem:
         itens = list(dict.fromkeys(itens))  # remove duplicatas, mantém a ordem recebida
@@ -149,7 +184,9 @@ def montar(le, lista, completo=False, manter_ordem=False):
     blocos = []
     for i in itens:
         try:
-            if isinstance(le, evangelho_db.Evangelho):
+            if isinstance(le, obras_db.Obra):
+                b = bloco_obra(le, i, completo, set(itens))
+            elif isinstance(le, evangelho_db.Evangelho):
                 b = bloco_evangelho(le, i, completo, set(itens))
             else:
                 b = bloco_anotacao(le, i) if i[:1] in "KNI" else bloco_pergunta(le, i, completo, set(itens))
@@ -157,9 +194,10 @@ def montar(le, lista, completo=False, manter_ordem=False):
                 cab_item, _, resto = b.partition("\n")
                 b = f"{cab_item}  relevância {notas[i]:g}%\n{resto}"
             blocos.append(b)
-        except (ErroConsulta, evangelho_db.ErroConsulta, KeyError, ValueError):
+        except ERROS:
             invalidos.append(i)
-    obra = "O Evangelho segundo o Espiritismo" if isinstance(le, evangelho_db.Evangelho) else "O Livro dos Espíritos"
+    obra = (le.titulo if isinstance(le, obras_db.Obra) else
+            "O Evangelho segundo o Espiritismo" if isinstance(le, evangelho_db.Evangelho) else "O Livro dos Espíritos")
     cab = (f"{obra} — consulta de {len(blocos)} itens "
            f"({datetime.now():%d/%m/%Y %H:%M})\nIds: {' | '.join(itens)}")
     if invalidos:
@@ -194,12 +232,18 @@ def main():
                          "Padrão 45000: com 60000 a leitura de uma IA chegou a ser truncada")
     ap.add_argument("--evangelho", action="store_true",
                     help="consultar O Evangelho segundo o Espiritismo (automático com ids capítulo:item)")
+    ap.add_argument("--livro", choices=["espiritos", "evangelho", "mediuns", "ceu", "genese"],
+                    help="livro dos ids (obrigatório para mediuns, ceu e genese)")
+    for nome in ("mediuns", "ceu", "genese"):
+        ap.add_argument(f"--{nome}", action="store_const", const=nome, dest="livro", help=f"atalho para --livro {nome}")
     ap.add_argument("--banco", default=None, help="caminho do JSON do banco")
     a = ap.parse_args()
     lista = a.lista if a.lista is not None else sys.stdin.read()
     if not lista.strip():
         ap.error("informe a lista de identificadores")
-    if a.evangelho or eh_evangelho(lista):
+    if a.livro in ("mediuns", "ceu", "genese"):
+        le = obras_db.Obra(a.livro, a.banco)
+    elif a.evangelho or a.livro == "evangelho" or (a.livro != "espiritos" and eh_evangelho(lista)):
         le = evangelho_db.Evangelho(a.banco or evangelho_db.ARQUIVO_PADRAO)
     else:
         le = LivroDosEspiritos(a.banco or ARQUIVO_PADRAO)
@@ -209,7 +253,9 @@ def main():
         base, ext = os.path.splitext(a.saida)
         caminhos = [a.saida] if len(textos) == 1 else [f"{base}_parte{i}{ext or '.txt'}" for i in range(1, len(textos) + 1)]
     else:
-        pasta = tempfile.mkdtemp(prefix="consulta_ese_" if isinstance(le, evangelho_db.Evangelho) else "consulta_le_")
+        prefixo = (f"consulta_{le.livro}_" if isinstance(le, obras_db.Obra) else
+                   "consulta_ese_" if isinstance(le, evangelho_db.Evangelho) else "consulta_le_")
+        pasta = tempfile.mkdtemp(prefix=prefixo)
         caminhos = [os.path.join(pasta, f"parte{i}.txt") for i in range(1, len(textos) + 1)]
     for c, t in zip(caminhos, textos):
         with open(c, "w", encoding="utf-8") as f:

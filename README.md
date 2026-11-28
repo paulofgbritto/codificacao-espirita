@@ -13,6 +13,9 @@ Só Python 3.8+, sem internet e sem IA: consultas não gastam tokens. A lista co
 | `dados/livro_dos_espiritos.zip` | O banco; descompacte em `dados/` → `dados/livro_dos_espiritos.json` |
 | `extrair_evangelho.py` | Gera o banco de *O Evangelho segundo o Espiritismo* a partir do PDF ou do texto |
 | `dados/evangelho.zip` | Banco do Evangelho; descompacte em `dados/` → `dados/evangelho.json` |
+| `obras_db.py` | API de *O Livro dos Médiuns*, *O Céu e o Inferno* e *A Gênese* (um livro por vez: `mediuns`, `ceu`, `genese`) |
+| `extrair_obras.py` | Gera os bancos desses três livros a partir do PDF ou do texto, com validação |
+| `dados/livro_dos_mediuns.zip`, `dados/ceu_e_inferno.zip`, `dados/genese.zip` | Bancos dos três livros; descompacte em `dados/` |
 
 Teste: `python codificacao_db.py stats`
 
@@ -63,6 +66,45 @@ Blocos para os agentes: `python montar_blocos.py --evangelho [pasta]` gera 7 blo
 
 Gerar o banco de novo: `python3 extrair_evangelho.py O-evangelho-segundo-o-espiritismo.pdf -o dados/evangelho.json`
 
+## O Livro dos Médiuns, O Céu e o Inferno e A Gênese
+
+Três bancos no mesmo esquema do Evangelho (`meta`, `partes`, `capitulos`, `ordem`, `itens`, `notas`), com uma API comum: `python obras_db.py <livro> <comando> [args]`, em que `<livro>` é `mediuns` (`lm`), `ceu` (`ci`) ou `genese` (`ag`). A unidade é sempre a divisão numerada do próprio livro; cada unidade guarda parte, capítulo, seção, autor e local/data (comunicação assinada), parágrafos, notas, páginas e o rodapé de citação, com o nome do capítulo em caixa alta.
+
+| Livro | Conteúdo |
+|---|---|
+| O Livro dos Médiuns (FEB, Guillon Ribeiro) | Introdução (11 parágrafos), 2 partes, 36 capítulos, 350 itens, Regulamento (preâmbulo + 29 artigos), 34 dissertações, 24 verbetes, 25 notas; ~234 mil tokens |
+| O Céu e o Inferno (FEB, Manuel Quintão) | Primeira Parte (Doutrina, 11 capítulos) e Segunda Parte (Exemplos, 8 capítulos, 66 exemplos), 289 unidades, 70 notas; ~205 mil tokens |
+| A Gênese (FEB, Guillon Ribeiro) | Introdução (12 parágrafos), 3 partes, 18 capítulos, 646 itens, 192 notas; ~200 mil tokens |
+
+| Livro | Id | O que é | Citação |
+|---|---|---|---|
+| Médiuns | `159` | item 159 (1 a 350 no livro inteiro) | `Livro dos Médiuns, cap. DOS MÉDIUNS, item 159` |
+| Médiuns | `I3` | Introdução, parágrafo 3 | `Livro dos Médiuns, INTRODUÇÃO` |
+| Médiuns | `R5` (`R0`) | Regulamento, art. 5º (preâmbulo) | `…, cap. REGULAMENTO DA SOCIEDADE PARISIENSE DE ESTUDOS ESPÍRITAS, art. 5º` |
+| Médiuns | `D12` (`D0`) | Dissertação XII (abertura do capítulo) | `Livro dos Médiuns, cap. DISSERTAÇÕES ESPÍRITAS, item XII` |
+| Médiuns | `V3` | 3º verbete do Vocabulário espírita | `Livro dos Médiuns, cap. VOCABULÁRIO ESPÍRITA, Erraticidade` |
+| Céu e Inferno | `7:3` (`7:0`) | Primeira Parte, cap. VII, item 3 (texto antes do item 1) | `Céu e Inferno, cap. O PORVIR E O NADA, item 3` |
+| Céu e Inferno | `7:12` | Código penal da vida futura, 12º | `Céu e Inferno, cap. AS PENAS FUTURAS SEGUNDO O ESPIRITISMO, Código penal da vida futura, 12º` |
+| Céu e Inferno | `E1:3` | Segunda Parte, cap. I (O passamento), item 3 | `Céu e Inferno, cap. O PASSAMENTO, item 3` |
+| Céu e Inferno | `E2:1` / `E2:1.2` | Segunda Parte, cap. II, exemplo 1 / sua comunicação II | `Céu e Inferno, cap. ESPÍRITOS FELIZES, Sanson, II` |
+| Gênese | `6:12` (`6:0`) | cap. VI, item 12 | `A Gênese, cap. URANOGRAFIA GERAL, item 12` |
+| Gênese | `I3` | Introdução, parágrafo 3 | `A Gênese, INTRODUÇÃO` |
+| os três | `N4` | nota de rodapé (as da Nota Explicativa e do Índice ficam de fora) | |
+
+Nos exemplos do Céu e Inferno com comunicações numeradas pelo livro (I, II…), cada comunicação é uma unidade (`E2:1.1`, `E2:1.2`…); numa lista, o id do exemplo (`E2:1`) vale por todas. Listas e faixas: `"159-162, R5 | N4"`, `"6:3-8"`, `"E2:1-4"`; capítulo inteiro numa lista: `cap 14`, `XIV`, `2.14` (parte.capítulo) ou, no Céu e Inferno, `E4`.
+
+| Para | Comando (`python obras_db.py <livro> …`) |
+|---|---|
+| Itens | `item 159` · `itens "159-162, R5, N4"` · `vizinhos 159` · `aleatorio` |
+| Estrutura | `capitulo 14` (ou `XIV`, `2.14`, parte do título) · `capitulos` · `partes` · `secao "obsessão"` · `secoes 14` |
+| Espíritos | `autor "São Luís"` · `autores` · `local Paris` |
+| Busca | `buscar "obsessão orgulho"` · `--modo frase` · `--capitulo 23` · `--autor Erasto` |
+| Notas e páginas | `nota 4` · `notas` · `pagina 120` |
+| Próprios | `mediuns introducao \| regulamento \| dissertacoes \| vocabulario [termo]` · `ceu exemplo Sanson \| exemplos E5 \| codigo_penal` · `genese introducao \| grupo fluidos` |
+| Outros | `ordenar "R5, 159, N4"` · `exportar pasta` · `caminho itens/159/texto` · `stats` |
+
+Blocos para os agentes: `python montar_blocos.py --mediuns|--ceu|--genese [pasta]` gera 8 blocos de ~16 a 36 mil tokens por livro, sempre com capítulos inteiros (partição que minimiza o maior bloco). Gerar os bancos de novo: `python3 extrair_obras.py mediuns|ceu|genese <PDF ou texto>`; o extrator confere o sumário do livro, a numeração de cada capítulo e a cobertura palavra por palavra.
+
 ## Comandos principais
 
 `python codificacao_db.py <comando> [args] [opções]`
@@ -98,7 +140,9 @@ echo "180|K181" | python consultar_lista.py                         → lê da e
 | `-o arquivo` | arquivo de saída (padrão: pasta temporária, `consulta_le_*.txt`) |
 | `--completo` | inclui também o comentário de Kardec e as notas de cada pergunta |
 | `--manter-ordem` | mantém a ordem recebida, sem reordenar |
-| `--max-caracteres N` | tamanho de cada parte (padrão 60000; `0` = um arquivo só) |
+| `--max-caracteres N` | tamanho de cada parte (padrão 45000; `0` = um arquivo só) |
+| `--evangelho` | O Evangelho segundo o Espiritismo (automático com ids `capítulo:item`) |
+| `--livro mediuns\|ceu\|genese` (ou `--mediuns`, `--ceu`, `--genese`) | os outros três livros; obrigatório, porque os ids deles não se distinguem sozinhos. O mesmo `--livro` vale para `situacao.py matriz` |
 
 Cada item sai como `[180] p.127 Parte…, Cap…` + `P:` + `R:` (+ `Referência:`/`N.E.:` quando houver); anotações saem como `[K919.a]` ou `[N4]`.
 `NENHUMA` é ignorado; ids inexistentes aparecem no fim, em "Não encontrados".

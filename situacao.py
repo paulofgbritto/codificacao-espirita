@@ -12,6 +12,8 @@ de tokens de cada item. Um só agente lê esse arquivo e dá as notas.
         do livro e corrige os tokens pelo banco. Saída: [['id', tokens, nota], ...]
         O Evangelho segundo o Espiritismo: ids capítulo:item ('5:4', '0:4.3', 'N13') são
         reconhecidos sozinhos; para uma matriz só de notas N#, use --evangelho.
+        O Livro dos Médiuns, O Céu e o Inferno e A Gênese (obras_db.py): sempre com
+        --livro mediuns | ceu | genese (os ids desses livros não se distinguem sozinhos).
 
 Tokens: estimativa (caracteres / 3,5), não a contagem exata do modelo.
 """
@@ -108,12 +110,38 @@ def matriz_evangelho(texto, minimo):
     print(repr(res))
 
 
+def matriz_obra(texto, minimo, livro):
+    from obras_db import Obra, tokens_aprox as tok_ob
+    ob = Obra(livro)
+    melhor, invalidos = {}, []
+    for bloco in re.findall(r"\[\s*\[.*?\]\s*\]", texto, re.S):
+        for linha in ast.literal_eval(bloco):
+            i, nota = str(linha[0]).strip(), float(linha[-1])
+            try:
+                ids = ob.ordenar(i)             # normaliza (VII:3 -> 7:3; E2:1 dividido -> suas comunicações)
+            except Exception:
+                ids = []
+            if not ids:
+                invalidos.append(i)
+                continue
+            for j in ids:
+                melhor[j] = max(nota, melhor.get(j, 0))
+    if invalidos:
+        print("AVISO: ids inexistentes ignorados: " + ", ".join(invalidos), file=sys.stderr)
+    ids = [i for i in ob.ordenar(", ".join(melhor)) if melhor[i] >= minimo] if melhor else []
+    res = [[i, tok_ob(ob.N[i]["texto"]) if i.startswith("N") else tok_ob(ob.I[i]["texto"]), int(round(melhor[i]))]
+           for i in ids]
+    print(repr(res))
+
+
 def eh_evangelho(texto):
     return bool(re.search(r"\[\s*['\"]\d{1,2}:\d", texto))
 
 
-def matriz(texto, minimo, evangelho=False):
-    if evangelho or eh_evangelho(texto):
+def matriz(texto, minimo, evangelho=False, livro=None):
+    if livro in ("mediuns", "ceu", "genese"):
+        return matriz_obra(texto, minimo, livro)
+    if evangelho or livro == "evangelho" or eh_evangelho(texto):
         return matriz_evangelho(texto, minimo)
     from busca import carregar_itens
     from codificacao_db import LivroDosEspiritos
@@ -148,9 +176,11 @@ if __name__ == "__main__":
     m = sub.add_parser("matriz")
     m.add_argument("texto"); m.add_argument("--min", type=float, default=30)
     m.add_argument("--evangelho", action="store_true", help="O Evangelho segundo o Espiritismo")
+    m.add_argument("--livro", choices=["espiritos", "evangelho", "mediuns", "ceu", "genese"],
+                   help="livro da matriz (obrigatório para mediuns, ceu e genese)")
     x = ap.parse_args()
     if x.cmd == "matriz":
-        matriz(x.texto, x.min, x.evangelho)
+        matriz(x.texto, x.min, x.evangelho, x.livro)
     elif x.cmd == "pool":
         pool(x.situacao, x.saida, x.duvida, x.k)
     else:

@@ -5,3 +5,9 @@ blocos_evangelho/
 __pycache__/
 modelo_onnx/
 indexar.log
+dados/livro_dos_mediuns.json
+dados/ceu_e_inferno.json
+dados/genese.json
+blocos_mediuns/
+blocos_ceu/
+blocos_genese/

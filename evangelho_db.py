@@ -201,17 +201,18 @@ class Evangelho:
         return d
 
     def citacao(self, iid):
-        """Rodapé de citação: 'O Evangelho segundo o Espiritismo, cap. V, item 4.'"""
+        """Rodapé de citação, com o NOME do capítulo em caixa alta:
+        'Evangelho segundo o Espiritismo, cap. BEM-AVENTURADOS OS AFLITOS, item 4'."""
         it = self.I[iid]
         if iid == "0:0":
-            ref = "Prefácio"
+            ref = "PREFÁCIO"
         elif it["capitulo"] == 0 and "." in iid:
-            ref = f"Introdução, IV, item {ROMANOS[it['item']]}"
+            ref = f"INTRODUÇÃO, item IV, ponto {ROMANOS[it['item']]}"
         elif it["capitulo"] == 0:
-            ref = f"Introdução, {ROMANOS[it['item']]}"
+            ref = f"INTRODUÇÃO, item {ROMANOS[it['item']]}"
         else:
-            ref = f"cap. {ROMANOS[it['capitulo']]}, item {it['item']}"
-        return f"O Evangelho segundo o Espiritismo, {ref}."
+            ref = f"cap. {it['capitulo_titulo'].upper()}, item {it['item']}"
+        return f"Evangelho segundo o Espiritismo, {ref}"
 
     def item(self, ref):
         return self._completo(self.I[self._existe(self.normalizar_id(ref))])

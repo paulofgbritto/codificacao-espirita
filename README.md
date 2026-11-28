@@ -57,7 +57,7 @@ Listas e faixas: `"5:4-8, 5:20-6:3, 12:9 | N4"`; `V` ou `cap 5` numa lista = cap
 | Notas e páginas | `nota 4` · `notas` · `notas_kardec` · `pagina 120` |
 | Outros | `ordenar "10:6, N4, 5:4"` · `exportar pasta` · `caminho itens/5:4/autor` · `stats` |
 
-Opções: `--ids`, `--formato texto|json|ids|curto`, `--expandir`, `--campos texto,secao,autor,...`. Cada item sai com o rodapé de citação (`O Evangelho segundo o Espiritismo, cap. V, item 4.`).
+Opções: `--ids`, `--formato texto|json|ids|curto`, `--expandir`, `--campos texto,secao,autor,...`. Cada item sai com o rodapé de citação (`Evangelho segundo o Espiritismo, cap. BEM-AVENTURADOS OS AFLITOS, item 4`: nome do capítulo em caixa alta).
 
 Blocos para os agentes: `python montar_blocos.py --evangelho [pasta]` gera 7 blocos de ~25 a 34 mil tokens, sempre com capítulos inteiros (Prefácio e Introdução + I–II, III–VI, VII–XI, XII–XV, XVI–XX, XXI–XXVII, XXVIII).
 

@@ -10,6 +10,8 @@ de tokens de cada item. Um só agente lê esse arquivo e dá as notas.
     python3 situacao.py matriz "<respostas dos agentes, coladas uma após a outra>" [--min 30]
         junta as matrizes dos agentes, tira duplicatas (fica a maior nota), põe na ordem
         do livro e corrige os tokens pelo banco. Saída: [['id', tokens, nota], ...]
+        O Evangelho segundo o Espiritismo: ids capítulo:item ('5:4', '0:4.3', 'N13') são
+        reconhecidos sozinhos; para uma matriz só de notas N#, use --evangelho.
 
 Tokens: estimativa (caracteres / 3,5), não a contagem exata do modelo.
 """
@@ -85,7 +87,34 @@ def conferir(saida, matriz, minimo):
     print(repr(ok))
 
 
-def matriz(texto, minimo):
+def matriz_evangelho(texto, minimo):
+    from evangelho_db import Evangelho, tokens_aprox as tok_ev
+    ev = Evangelho()
+    melhor, invalidos = {}, []
+    for bloco in re.findall(r"\[\s*\[.*?\]\s*\]", texto, re.S):
+        for linha in ast.literal_eval(bloco):
+            i, nota = str(linha[0]).strip(), float(linha[-1])
+            try:
+                i = ev.ordenar(i)[0]            # normaliza (V:4 -> 5:4) e confere se existe
+            except Exception:
+                invalidos.append(i)
+                continue
+            melhor[i] = max(nota, melhor.get(i, 0))
+    if invalidos:
+        print("AVISO: ids inexistentes ignorados: " + ", ".join(invalidos), file=sys.stderr)
+    ids = [i for i in ev.ordenar(", ".join(melhor)) if melhor[i] >= minimo] if melhor else []
+    res = [[i, tok_ev(ev.N[i]["texto"]) if i.startswith("N") else ev.item(i)["tokens"], int(round(melhor[i]))]
+           for i in ids]
+    print(repr(res))
+
+
+def eh_evangelho(texto):
+    return bool(re.search(r"\[\s*['\"]\d{1,2}:\d", texto))
+
+
+def matriz(texto, minimo, evangelho=False):
+    if evangelho or eh_evangelho(texto):
+        return matriz_evangelho(texto, minimo)
     from busca import carregar_itens
     from codificacao_db import LivroDosEspiritos
     itens = carregar_itens(LivroDosEspiritos())
@@ -118,9 +147,10 @@ if __name__ == "__main__":
     c.add_argument("--min", type=float, default=30)
     m = sub.add_parser("matriz")
     m.add_argument("texto"); m.add_argument("--min", type=float, default=30)
+    m.add_argument("--evangelho", action="store_true", help="O Evangelho segundo o Espiritismo")
     x = ap.parse_args()
     if x.cmd == "matriz":
-        matriz(x.texto, x.min)
+        matriz(x.texto, x.min, x.evangelho)
     elif x.cmd == "pool":
         pool(x.situacao, x.saida, x.duvida, x.k)
     else:

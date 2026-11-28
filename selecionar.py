@@ -7,6 +7,8 @@ Ordem de escolha: maior nota primeiro; em empate, o de menos tokens. Por padrão
 termina no primeiro item que estourar o limite: tudo o que entra tem nota maior ou igual a tudo
 o que fica de fora. Com --pular, um item que não cabe é pulado e a busca continua (enche mais o
 limite, mas pode deixar de fora um item de nota alta e pôr outros de nota baixa no lugar).
+Serve para os dois livros (O Livro dos Espíritos e O Evangelho segundo o Espiritismo): só usa
+os ids como texto e mantém a ordem em que a matriz chegou (a do situacao.py matriz).
 Saída (stdout): a matriz escolhida, na ordem do livro. Resumo (stderr): itens, tokens, nota mínima.
 """
 import argparse
